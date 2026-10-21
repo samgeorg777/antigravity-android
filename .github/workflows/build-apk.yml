@@ -1,0 +1,79 @@
+name: Build Antigravity Android APK
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+    inputs:
+      prebundle:
+        description: "Pre-bundle Antigravity engine inside APK (Offline build ~250MB, vs Fast/Compact build ~35MB)"
+        required: true
+        type: boolean
+        default: false
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-apk:
+    name: Build Antigravity APK
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "17"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Clone Termux Base Engine
+        run: |
+          echo "[*] Cloning termux-app repository..."
+          git clone --depth 1 https://github.com/termux/termux-app.git termux-src
+
+      - name: Customize and Inject Antigravity Setup
+        run: |
+          chmod +x scripts/customize-termux.sh scripts/antigravity-autostart.sh
+          PREBUNDLE_FLAG="${{ github.event.inputs.prebundle || 'false' }}"
+          ./scripts/customize-termux.sh termux-src "$PREBUNDLE_FLAG"
+
+      - name: Build Debug APK
+        run: |
+          cd termux-src
+          ./gradlew assembleDebug --no-daemon
+
+      - name: Prepare Output APK
+        run: |
+          mkdir -p output
+          APK_PATH=$(find termux-src/app/build/outputs/apk/debug -name "*.apk" | head -n 1)
+          if [ -f "$APK_PATH" ]; then
+            cp "$APK_PATH" output/Antigravity-CLI.apk
+            echo "[+] Successfully generated output/Antigravity-CLI.apk"
+            ls -lh output/Antigravity-CLI.apk
+          else
+            echo "[-] Error: APK not found!"
+            exit 1
+          fi
+
+      - name: Upload APK as Workflow Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Antigravity-CLI-Android
+          path: output/Antigravity-CLI.apk
+          retention-days: 14
+
+      - name: Release APK (on tag or manual release)
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: output/Antigravity-CLI.apk
+          generate_release_notes: true

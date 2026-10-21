@@ -1,0 +1,13 @@
+# Build artifacts and temp dirs
+termux-src/
+output/
+*.apk
+*.zip
+*.tar.gz
+*.log
+
+# Gradle & IDE
+.gradle/
+build/
+.idea/
+*.iml
