@@ -1,5 +1,8 @@
 # 🚀 Antigravity CLI for Android (Zero-Setup Standalone App)
 
+[![Latest Release](https://img.shields.io/github/v/release/samgeorg777/antigravity-android?label=Latest%20Release&color=00F0FF)](https://github.com/samgeorg777/antigravity-android/releases/latest)
+[![Download APK](https://img.shields.io/badge/Download-Antigravity--CLI.apk-7928CA?logo=android&logoColor=white)](https://github.com/samgeorg777/antigravity-android/releases/latest/download/Antigravity-CLI.apk)
+
 A fully automated, standalone Android application (`.apk`) that runs **Google's Antigravity CLI (`agy`)** natively on Android without requiring manual terminal configuration, package installation, or glibc setup.
 
 Built with a dedicated package ID (`com.agycli`), it installs and runs completely independently alongside any existing Termux app on your device without conflicts.
@@ -38,14 +41,13 @@ Built with a dedicated package ID (`com.agycli`), it installs and runs completel
 
 ## 📥 Download & Installation
 
-The latest pre-built `.apk` is built automatically by GitHub Actions on every commit:
+The application is released directly as a pre-built APK on GitHub Releases:
 
-1. Go to the [Actions tab](https://github.com/samgeorg777/antigravity-android/actions).
-2. Click on the latest workflow run: **Build Antigravity Android APK**.
-3. Scroll down to the **Artifacts** section at the bottom.
-4. Download **`Antigravity-CLI-Android`**, unzip it, and tap **`Antigravity-CLI.apk`** to install on your Android device.
+👉 **[Download Antigravity-CLI.apk (Latest Release)](https://github.com/samgeorg777/antigravity-android/releases/latest/download/Antigravity-CLI.apk)**
 
-*(If you are building locally on your device, the generated APK is also saved to `/sdcard/Download/Antigravity-CLI.apk`).*
+You can view all releases and release notes on the **[GitHub Releases Page](https://github.com/samgeorg777/antigravity-android/releases)**.
+
+*(If you are building locally or via GitHub Actions, the APK is also saved to `/sdcard/Download/Antigravity-CLI.apk` and uploaded to GitHub Actions Artifacts).*
 
 ---
 
