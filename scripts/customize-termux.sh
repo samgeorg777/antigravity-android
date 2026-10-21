@@ -59,6 +59,12 @@ python3 "$SCRIPT_DIR/patch_gradle.py" "$TERMUX_DIR/app/build.gradle"
 # 6.1 Patch Termux UI features (Clickable URLs, Drag & Drop, Image/File Insert)
 python3 "$SCRIPT_DIR/patch_termux_features.py" "$TERMUX_DIR"
 
+# 6.2 Apply Antigravity branding, themes, animations, and vector icons
+python3 "$SCRIPT_DIR/apply_antigravity_theme.py" "$TERMUX_DIR"
+
+# 6.3 Generate launcher icons for all screen densities
+python3 "$SCRIPT_DIR/generate_png_icons.py" "$TERMUX_DIR"
+
 # 7. Prepare directory for bootstrap archives
 CPP_DIR="$TERMUX_DIR/app/src/main/cpp"
 mkdir -p "$CPP_DIR"
@@ -79,10 +85,34 @@ unzip -q "$TMP_WORK/bootstrap-aarch64.zip" -d "$TMP_WORK/extracted"
 echo "[*] Injecting glibc into bootstrap rootfs..."
 python3 "$SCRIPT_DIR/inject_glibc.py" "$TMP_WORK/extracted"
 
-# Inject autostart hook
-mkdir -p "$TMP_WORK/extracted/etc/profile.d"
+# Inject autostart hook and Antigravity color theme
+mkdir -p "$TMP_WORK/extracted/etc/profile.d" "$TMP_WORK/extracted/home/.termux"
 cp "$SCRIPT_DIR/antigravity-autostart.sh" "$TMP_WORK/extracted/etc/profile.d/00-antigravity.sh"
 chmod 755 "$TMP_WORK/extracted/etc/profile.d/00-antigravity.sh"
+
+cat << 'EOF' > "$TMP_WORK/extracted/home/.termux/colors.properties"
+background=#0B0F19
+foreground=#E2E8F0
+cursor=#00F0FF
+
+color0=#151B28
+color1=#FF5370
+color2=#22C55E
+color3=#FFD166
+color4=#38BDF8
+color5=#C084FC
+color6=#00F0FF
+color7=#E2E8F0
+
+color8=#475569
+color9=#FF6E8A
+color10=#4ADE80
+color11=#FDE047
+color12=#60A5FA
+color13=#D8B4FE
+color14=#67E8F9
+color15=#FFFFFF
+EOF
 
 # Pre-bundle engine if requested
 if [ "$PREBUNDLE" = "true" ]; then

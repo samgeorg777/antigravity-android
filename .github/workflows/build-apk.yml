@@ -39,7 +39,8 @@ jobs:
 
       - name: Customize and Inject Antigravity Setup
         run: |
-          chmod +x scripts/customize-termux.sh scripts/antigravity-autostart.sh
+          python3 -m pip install --upgrade pillow
+          chmod +x scripts/*.sh scripts/*.py 2>/dev/null || true
           PREBUNDLE_FLAG="${{ github.event.inputs.prebundle || 'false' }}"
           ./scripts/customize-termux.sh termux-src "$PREBUNDLE_FLAG"
 

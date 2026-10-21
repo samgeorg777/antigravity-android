@@ -42,8 +42,35 @@ fi
 # Set Go DNS resolution to cgo (uses glibc getaddrinfo + /etc/hosts)
 export GODEBUG="netdns=cgo"
 
-# Ensure uploads directory exists for file/image drop and pick
-mkdir -p "$HOME/uploads"
+# Ensure uploads and .termux configuration directories exist
+mkdir -p "$HOME/uploads" "$HOME/.termux"
+
+# Ensure Antigravity dark cosmic color palette is applied
+if [ ! -f "$HOME/.termux/colors.properties" ]; then
+    cat << 'EOF' > "$HOME/.termux/colors.properties"
+background=#0B0F19
+foreground=#E2E8F0
+cursor=#00F0FF
+
+color0=#151B28
+color1=#FF5370
+color2=#22C55E
+color3=#FFD166
+color4=#38BDF8
+color5=#C084FC
+color6=#00F0FF
+color7=#E2E8F0
+
+color8=#475569
+color9=#FF6E8A
+color10=#4ADE80
+color11=#FDE047
+color12=#60A5FA
+color13=#D8B4FE
+color14=#67E8F9
+color15=#FFFFFF
+EOF
+fi
 
 # Check if Antigravity CLI is already installed
 if [ ! -x "$PREFIX/bin/agy" ] || [ ! -x "$PREFIX/bin/agy.va39" ]; then
@@ -81,6 +108,27 @@ fi
 
 # Launch Antigravity CLI directly
 if [ -x "$PREFIX/bin/agy" ]; then
+    CYAN="\033[38;2;0;240;255m"
+    PURPLE="\033[38;2;168;85;247m"
+    WHITE="\033[38;2;248;250;252m"
+    GRAY="\033[38;2;148;163;184m"
+    RESET="\033[0m"
+    BOLD="\033[1m"
+
     clear
+    echo -e "${PURPLE}  ╭────────────────────────────────────────────────────────────╮${RESET}"
+    echo -e "${PURPLE}  │  ${CYAN}${BOLD}▲  A N T I G R A V I T Y   C L I${RESET}${PURPLE}                           │${RESET}"
+    echo -e "${PURPLE}  │  ${GRAY}Google DeepMind Advanced Agentic AI for Android          ${PURPLE}│${RESET}"
+    echo -e "${PURPLE}  ╰────────────────────────────────────────────────────────────╯${RESET}"
+    echo ""
+
+    spin_frames=("⠋" "⠙" "⠹" "⠸" "⠼" "⠴" "⠦" "⠧" "⠇" "⠏")
+    for frame in "${spin_frames[@]}"; do
+        echo -ne "\r  ${CYAN}[$frame]${RESET} ${WHITE}Initializing Neural Engine & Workspace...${RESET}"
+        sleep 0.03
+    done
+    echo -ne "\r  ${CYAN}[✓]${RESET} ${WHITE}${BOLD}Antigravity Agent Ready! Defying limits.${RESET}\n\n"
+    sleep 0.2
+
     exec "$PREFIX/bin/agy" "$@"
 fi
