@@ -46,11 +46,8 @@ if [ -f "$SHORTCUTS_XML" ]; then
     sed -i "s/targetPackage=\"com.termux\"/targetPackage=\"$NEW_PKG\"/g" "$SHORTCUTS_XML"
 fi
 
-# 5. Update app/build.gradle (applicationId and manifestPlaceholders)
-BUILD_GRADLE="$TERMUX_DIR/app/build.gradle"
-echo "[*] Configuring applicationId and manifestPlaceholders in app/build.gradle..."
-sed -i "s/manifestPlaceholders.TERMUX_PACKAGE_NAME = \"com.termux\"/manifestPlaceholders.TERMUX_PACKAGE_NAME = \"$NEW_PKG\"\n        applicationId \"$NEW_PKG\"/g" "$BUILD_GRADLE"
-sed -i 's/manifestPlaceholders.TERMUX_APP_NAME = "Termux"/manifestPlaceholders.TERMUX_APP_NAME = "Antigravity CLI"/g' "$BUILD_GRADLE"
+# 5. Patch app/build.gradle using Python helper (sets applicationId and disables downloadBootstraps)
+python3 "$SCRIPT_DIR/patch_gradle.py" "$TERMUX_DIR/app/build.gradle"
 
 # 6. Prepare directory for bootstrap archives
 CPP_DIR="$TERMUX_DIR/app/src/main/cpp"
@@ -95,6 +92,16 @@ echo "[*] Injecting Antigravity hooks into bootstrap-aarch64.zip..."
 
 cp "$TMP_WORK/bootstrap-aarch64.zip" "$CPP_DIR/bootstrap-aarch64.zip"
 
+# Verify that the bootstrap is properly patched
+python3 -c "
+import zipfile
+zf = zipfile.ZipFile('$CPP_DIR/bootstrap-aarch64.zip')
+login = zf.read('bin/login')
+assert b'$NEW_PKG' in login, 'Verification failed: $NEW_PKG not found in bin/login'
+assert b'com.termux' not in login, 'Verification failed: com.termux still in bin/login'
+print('[✓] Verification passed: bootstrap-aarch64.zip is correctly patched for $NEW_PKG')
+"
+
 # Download and patch upstream bootstraps for other architectures
 for arch in arm i686 x86_64; do
     if [ ! -f "$CPP_DIR/bootstrap-${arch}.zip" ]; then
@@ -107,9 +114,5 @@ done
 
 # Clean up temporary work folder
 rm -rf "$TMP_WORK"
-
-# 8. Patch app/build.gradle to preserve custom bootstraps
-echo "[*] Patching $BUILD_GRADLE to preserve custom bootstraps..."
-sed -i 's/def downloadBootstrap(arch, expectedChecksum, version) {/def downloadBootstrap(arch, expectedChecksum, version) { return; /g' "$BUILD_GRADLE"
 
 echo "=== Customization complete! Ready to compile as '$NEW_PKG'. ==="
