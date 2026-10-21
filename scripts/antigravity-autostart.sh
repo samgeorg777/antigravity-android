@@ -1,4 +1,4 @@
-#!/data/data/com.termux/files/usr/bin/bash
+#!/data/data/com.agycli/files/usr/bin/bash
 # Antigravity CLI Auto-Start and Zero-Setup Bootstrapper for Android
 
 # Only run in interactive terminal sessions
