@@ -1,0 +1,84 @@
+#!/data/data/com.agycli/files/usr/bin/python3
+# ==============================================================================
+# patch-faccessat: Antigravity Syscall Compatibility Patcher for Android
+# Converts unsupported Linux faccessat2 (syscall 439) into faccessat (syscall 48)
+# to prevent Android seccomp SIGSYS: bad system call crashes in Go / gh binaries.
+# ==============================================================================
+import sys
+import os
+import glob
+
+CYAN = "\033[38;2;0;240;255m"
+GREEN = "\033[38;2;34;197;94m"
+YELLOW = "\033[38;2;234;179;8m"
+RED = "\033[38;2;239;68;68m"
+RESET = "\033[0m"
+
+def patch_binary(path):
+    if not os.path.isfile(path) or os.path.islink(path):
+        return 0
+    try:
+        with open(path, 'rb') as f:
+            header = f.read(4)
+            if header != b'\x7fELF':
+                return 0
+            f.seek(0)
+            data = bytearray(f.read())
+    except Exception:
+        return 0
+
+    count = 0
+    # Search on 4-byte instruction alignment
+    for i in range(0, len(data) - 4, 4):
+        # mov x0, #439 (0xD28036E0) -> mov x0, #48 (0xD2800600)
+        if data[i:i+4] == b'\xe0\x36\x80\xd2':
+            data[i:i+4] = b'\x00\x06\x80\xd2'
+            count += 1
+        # mov x8, #439 (0xD28036E8) -> mov x8, #48 (0xD2800608)
+        elif data[i:i+4] == b'\xe8\x36\x80\xd2':
+            data[i:i+4] = b'\x08\x06\x80\xd2'
+            count += 1
+
+    if count > 0:
+        try:
+            with open(path, 'wb') as f:
+                f.write(data)
+            print(f"{GREEN}[✓] Successfully patched {count} faccessat2 syscall(s) in: {path}{RESET}")
+            return count
+        except Exception as e:
+            print(f"{RED}[✗] Failed to write patched binary {path}: {e}{RESET}")
+            return 0
+    return 0
+
+def main():
+    if len(sys.argv) < 2:
+        # Default: scan common binary dirs for gh and go binaries
+        prefix = os.environ.get("PREFIX", "/data/data/com.agycli/files/usr")
+        candidates = [
+            os.path.join(prefix, "bin", "gh"),
+            os.path.join(prefix, "bin", "git"),
+        ]
+        home = os.environ.get("HOME", "/data/data/com.agycli/files/home")
+        candidates.extend(glob.glob(os.path.join(home, "go", "bin", "*")))
+        candidates.extend(glob.glob(os.path.join(home, "bin", "*")))
+
+        total = 0
+        for cand in candidates:
+            if os.path.isfile(cand):
+                total += patch_binary(cand)
+        if total == 0:
+            print(f"{CYAN}[i] No unpatched faccessat2 binaries found in default paths.{RESET}")
+        return
+
+    for target in sys.argv[1:]:
+        if os.path.isdir(target):
+            for root, _, files in os.walk(target):
+                for f in files:
+                    patch_binary(os.path.join(root, f))
+        elif os.path.isfile(target):
+            cnt = patch_binary(target)
+            if cnt == 0:
+                print(f"{YELLOW}[i] No faccessat2 syscall found in {target} (already compatible).{RESET}")
+
+if __name__ == "__main__":
+    main()

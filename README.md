@@ -58,10 +58,33 @@ When you open the **Antigravity CLI** app for the first time:
 - You are greeted with the interactive `agy` prompt!
 
 ### 2. GitHub Authentication
-When `agy` asks you to log in to GitHub:
-1. A verification link like `https://github.com/login/device` and an 8-character code will appear.
-2. Simply **tap the link directly on your screen** to open it in your browser.
-3. Enter the code and authorize. The app will immediately recognize the login and start.
+When authenticating with GitHub, Antigravity CLI supports multiple seamless methods:
+
+#### Method A: Direct Web Login
+1. Run `gh auth login --web` (or let `agy` initiate it).
+2. A verification link (e.g. `https://github.com/login/device`) and an 8-character code will appear.
+3. Simply **tap the link directly on your screen** to open it in your browser, enter the code, and approve.
+
+#### Method B: Personal Access Token (Instant / Non-Interactive)
+If you already have a GitHub Personal Access Token (classic or fine-grained):
+```bash
+echo "YOUR_GITHUB_TOKEN" | gh auth login --with-token
+```
+Or set it directly in your environment:
+```bash
+export GH_TOKEN="YOUR_GITHUB_TOKEN"
+```
+
+#### Method C: Android Seccomp Syscall Compatibility (`patch-faccessat`)
+If any generic Go or GitHub CLI binary fails with `SIGSYS: bad system call (faccessat2)` due to Android's kernel sandbox:
+- Antigravity CLI includes an automated patcher **`patch-faccessat`** that safely rewrites Linux `faccessat2` (syscall 439) to legacy `faccessat` (syscall 48):
+  ```bash
+  patch-faccessat $PREFIX/bin/gh
+  ```
+- Or install the native Android/Termux package:
+  ```bash
+  rm -f $PREFIX/bin/gh && pkg install -y git gh
+  ```
 
 ### 3. Adding Images and Files to Prompts
 You can pass images or documents to Antigravity CLI in several ways:

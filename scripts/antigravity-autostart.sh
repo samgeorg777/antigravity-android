@@ -100,6 +100,18 @@ for drive in /storage/*; do
     fi
 done
 
+# Auto-patch any Go / gh binaries for Android seccomp (faccessat2 -> faccessat)
+if [ -x "$PREFIX/bin/patch-faccessat" ]; then
+    "$PREFIX/bin/patch-faccessat" >/dev/null 2>&1 || true
+fi
+
+# Auto-import GitHub auth config if found in shared storage
+if [ ! -f "$HOME/.config/gh/hosts.yml" ] && [ -f "$HOME/storage/downloads/hosts.yml" ]; then
+    mkdir -p "$HOME/.config/gh"
+    cp -f "$HOME/storage/downloads/hosts.yml" "$HOME/.config/gh/hosts.yml" 2>/dev/null || true
+    chmod 600 "$HOME/.config/gh/hosts.yml" 2>/dev/null || true
+fi
+
 # Check if Antigravity CLI is already installed
 if [ ! -x "$PREFIX/bin/agy" ] || [ ! -x "$PREFIX/bin/agy.va39" ]; then
     clear

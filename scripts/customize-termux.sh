@@ -96,6 +96,10 @@ chmod 755 "$TMP_WORK/extracted/bin/agy-device"
 ln -sf agy-device "$TMP_WORK/extracted/bin/device"
 ln -sf agy-device "$TMP_WORK/extracted/bin/control"
 
+# Inject patch-faccessat syscall compatibility patcher for Android seccomp
+cp "$SCRIPT_DIR/patch-faccessat" "$TMP_WORK/extracted/bin/patch-faccessat"
+chmod 755 "$TMP_WORK/extracted/bin/patch-faccessat"
+
 cat << 'EOF' > "$TMP_WORK/extracted/home/.termux/colors.properties"
 background=#0B0F19
 foreground=#E2E8F0
