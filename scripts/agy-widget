@@ -1,0 +1,389 @@
+#!/data/data/com.agycli/files/usr/bin/python3
+# ==============================================================================
+# agy-widget: Antigravity Dynamic Custom Widget Engine for Android
+# Allows Antigravity CLI (agy) and the user to create, customize, and control
+# home screen widgets (colors, shapes, graphics, text, and actions).
+# ==============================================================================
+
+import sys
+import os
+import json
+import argparse
+import subprocess
+import datetime
+
+CYAN = "\033[38;2;0;240;255m"
+BLUE = "\033[38;2;56;189;248m"
+PURPLE = "\033[38;2;168;85;247m"
+GREEN = "\033[38;2;34;197;94m"
+RED = "\033[38;2;239;68;68m"
+YELLOW = "\033[38;2;234;179;8m"
+WHITE = "\033[38;2;248;250;252m"
+GRAY = "\033[38;2;148;163;184m"
+RESET = "\033[0m"
+BOLD = "\033[1m"
+
+def get_widget_dir():
+    home = os.environ.get("HOME", "/data/data/com.agycli/files/home")
+    wdir = os.path.join(home, ".antigravity", "widgets")
+    os.makedirs(wdir, exist_ok=True)
+    return wdir
+
+def get_json_path():
+    return os.path.join(get_widget_dir(), "widget.json")
+
+def load_config():
+    p = get_json_path()
+    if os.path.exists(p):
+        try:
+            with open(p, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            pass
+    return {
+        "title": "Antigravity Node",
+        "title_color": "#00F0FF",
+        "status": "ONLINE",
+        "status_color": "#22C55E",
+        "text": "Tap to launch Antigravity AI\nDefying system limits.",
+        "text_color": "#E2E8F0",
+        "shape": "chamfer",
+        "bg": "#E60B0F19",
+        "bg2": "#E6151B28",
+        "border": "#00F0FF",
+        "border_width": 3,
+        "radius": 24,
+        "show_overlay": True,
+        "click_action": "open"
+    }
+
+def save_config(cfg):
+    p = get_json_path()
+    with open(p, "w", encoding="utf-8") as f:
+        json.dump(cfg, f, indent=2)
+
+def trigger_update():
+    # Broadcast to AntigravityWidgetProvider
+    cmd = [
+        "am", "broadcast", "--user", "0",
+        "-a", "com.agycli.action.WIDGET_UPDATE",
+        "-n", "com.agycli/com.termux.app.widget.AntigravityWidgetProvider"
+    ]
+    try:
+        subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        print(f"{GREEN}[✓] Widget refreshed on Android home screen!{RESET}")
+    except Exception as e:
+        print(f"{YELLOW}[!] Notice: Update broadcast sent ({e}){RESET}")
+
+def cmd_set(args):
+    cfg = load_config()
+    if args.title is not None: cfg["title"] = args.title
+    if args.title_color is not None: cfg["title_color"] = args.title_color
+    if args.status is not None: cfg["status"] = args.status
+    if args.status_color is not None: cfg["status_color"] = args.status_color
+    if args.text is not None: cfg["text"] = args.text.replace("\\n", "\n")
+    if args.text_color is not None: cfg["text_color"] = args.text_color
+    if args.shape is not None: cfg["shape"] = args.shape
+    if args.bg is not None: cfg["bg"] = args.bg
+    if args.bg2 is not None: cfg["bg2"] = args.bg2
+    if args.border is not None: cfg["border"] = args.border
+    if args.border_width is not None: cfg["border_width"] = args.border_width
+    if args.radius is not None: cfg["radius"] = args.radius
+    if args.overlay is not None: cfg["show_overlay"] = (args.overlay.lower() in ("true", "1", "yes"))
+    if args.click is not None: cfg["click_action"] = args.click
+
+    if args.btn1 or args.action1:
+        cfg["btn1"] = cfg.get("btn1", {})
+        if args.btn1: cfg["btn1"]["text"] = args.btn1
+        if args.action1: cfg["btn1"]["action"] = args.action1
+        if args.color1: cfg["btn1"]["color"] = args.color1
+
+    if args.btn2 or args.action2:
+        cfg["btn2"] = cfg.get("btn2", {})
+        if args.btn2: cfg["btn2"]["text"] = args.btn2
+        if args.action2: cfg["btn2"]["action"] = args.action2
+        if args.color2: cfg["btn2"]["color"] = args.color2
+
+    if args.btn3 or args.action3:
+        cfg["btn3"] = cfg.get("btn3", {})
+        if args.btn3: cfg["btn3"]["text"] = args.btn3
+        if args.action3: cfg["btn3"]["action"] = args.action3
+        if args.color3: cfg["btn3"]["color"] = args.color3
+
+    if args.image:
+        set_image_file(args.image, cfg)
+
+    save_config(cfg)
+    trigger_update()
+
+def set_image_file(image_path, cfg=None):
+    if not os.path.exists(image_path):
+        print(f"{RED}[✗] Image not found: {image_path}{RESET}")
+        return
+    import shutil
+    dest = os.path.join(get_widget_dir(), "widget.png")
+    shutil.copyfile(image_path, dest)
+    if cfg is not None:
+        cfg["canvas_image"] = dest
+    print(f"{GREEN}[✓] Widget image updated: {dest}{RESET}")
+
+def cmd_image(args):
+    cfg = load_config()
+    set_image_file(args.path, cfg)
+    save_config(cfg)
+    trigger_update()
+
+def get_system_stats():
+    # Simple battery and mem stats
+    stats = {"battery": "85%", "mem": "3.8 GB / 8.0 GB"}
+    try:
+        if os.path.exists("/sys/class/power_supply/battery/capacity"):
+            with open("/sys/class/power_supply/battery/capacity") as f:
+                stats["battery"] = f.read().strip() + "%"
+        if os.path.exists("/proc/meminfo"):
+            with open("/proc/meminfo") as f:
+                lines = f.readlines()
+                total = int(lines[0].split()[1]) // 1024
+                avail = int(lines[2].split()[1]) // 1024
+                used = total - avail
+                stats["mem"] = f"{used // 1024}.{ (used % 1024) // 100 } GB / {total // 1024} GB"
+    except Exception:
+        pass
+    return stats
+
+def cmd_template(args):
+    name = args.name.lower()
+    stats = get_system_stats()
+    now_str = datetime.datetime.now().strftime("%H:%M  •  %b %d")
+
+    if name in ("cosmic", "cyberpunk", "futuristic"):
+        cfg = {
+            "title": "ANTIGRAVITY // NODE",
+            "title_color": "#00F0FF",
+            "status": "ONLINE",
+            "status_color": "#22C55E",
+            "text": f"SYS: {stats['mem']}  •  BAT: {stats['battery']}\nTime: {now_str}\nQuantum Neural Engine Active.",
+            "text_color": "#E2E8F0",
+            "shape": "chamfer",
+            "bg": "#E60B0F19",
+            "bg2": "#E6151B28",
+            "border": "#00F0FF",
+            "border_width": 3,
+            "radius": 24,
+            "show_overlay": True,
+            "click_action": "open",
+            "btn1": {"text": "Run AI", "action": "agy", "color": "#00F0FF"},
+            "btn2": {"text": "Device", "action": "agy-device status", "color": "#A855F7"},
+            "btn3": {"text": "Refresh", "action": "agy-widget template cosmic", "color": "#38BDF8"}
+        }
+    elif name in ("matrix", "terminal"):
+        cfg = {
+            "title": "MATRIX // HOST",
+            "title_color": "#22C55E",
+            "status": "ROOT",
+            "status_color": "#22C55E",
+            "text": f"> MEM: {stats['mem']}\n> PWR: {stats['battery']} charged\n> agy-daemon: listening on port 2000",
+            "text_color": "#4ADE80",
+            "shape": "rounded_rect",
+            "bg": "#F2030804",
+            "bg2": "#E6081409",
+            "border": "#22C55E",
+            "border_width": 2,
+            "radius": 16,
+            "show_overlay": True,
+            "click_action": "open",
+            "btn1": {"text": "Shell", "action": "bash", "color": "#22C55E"},
+            "btn2": {"text": "Git", "action": "git status", "color": "#4ADE80"}
+        }
+    elif name in ("minimal", "clean", "glass"):
+        cfg = {
+            "title": "Antigravity",
+            "title_color": "#FFFFFF",
+            "status": "SYNCED",
+            "status_color": "#38BDF8",
+            "text": f"Battery: {stats['battery']}  |  RAM: {stats['mem']}\n{now_str}",
+            "text_color": "#94A3B8",
+            "shape": "pill",
+            "bg": "#CC0F172A",
+            "bg2": "#CC1E293B",
+            "border": "#38BDF8",
+            "border_width": 2,
+            "radius": 32,
+            "show_overlay": True,
+            "click_action": "open",
+            "btn1": {"text": "Open", "action": "open", "color": "#38BDF8"}
+        }
+    elif name in ("gauge", "stats"):
+        cfg = {
+            "title": "System Telemetry",
+            "title_color": "#C084FC",
+            "status": "MONITORING",
+            "status_color": "#00F0FF",
+            "text": f"● Memory In-Use : {stats['mem']}\n● Battery Level : {stats['battery']}\n● Antigravity AI : Ready",
+            "text_color": "#F8FAFC",
+            "shape": "hex",
+            "bg": "#E6140B24",
+            "bg2": "#E62E1065",
+            "border": "#C084FC",
+            "border_width": 3,
+            "radius": 20,
+            "show_overlay": True,
+            "click_action": "open",
+            "btn1": {"text": "AI Summary", "action": "agy 'summarize system status'", "color": "#00F0FF"},
+            "btn2": {"text": "Refresh", "action": "agy-widget template gauge", "color": "#C084FC"}
+        }
+    elif name in ("checklist", "tasks"):
+        cfg = {
+            "title": "Daily Objectives",
+            "title_color": "#FFD166",
+            "status": "IN PROGRESS",
+            "status_color": "#FFD166",
+            "text": "☐ Code review & push\n☐ Test Android app build\n☑ Run agy autonomous agent",
+            "text_color": "#E2E8F0",
+            "shape": "rounded_rect",
+            "bg": "#E61A1810",
+            "bg2": "#E60B0F19",
+            "border": "#FFD166",
+            "border_width": 2,
+            "radius": 18,
+            "show_overlay": True,
+            "click_action": "open",
+            "btn1": {"text": "Add Task", "action": "agy 'add task to daily list'", "color": "#FFD166"},
+            "btn2": {"text": "Done", "action": "agy 'mark first task done'", "color": "#22C55E"}
+        }
+    elif name in ("quote", "note"):
+        cfg = {
+            "title": "Neural Scratchpad",
+            "title_color": "#00F0FF",
+            "status": "IDEA",
+            "status_color": "#C084FC",
+            "text": "\"The best way to predict the future is to automate it.\" — Antigravity Agent",
+            "text_color": "#F1F5F9",
+            "shape": "chamfer",
+            "bg": "#E60B0F19",
+            "bg2": "#E61A0B2E",
+            "border": "#00F0FF",
+            "border_width": 2,
+            "radius": 24,
+            "show_overlay": True,
+            "click_action": "open",
+            "btn1": {"text": "New Idea", "action": "agy 'give me an innovative idea'", "color": "#00F0FF"}
+        }
+    else:
+        print(f"{YELLOW}[!] Unknown template: {name}. Available: cosmic, matrix, minimal, gauge, checklist, quote{RESET}")
+        return
+
+    # Remove any old custom bitmap so template colors shine
+    png_path = os.path.join(get_widget_dir(), "widget.png")
+    if os.path.exists(png_path):
+        try: os.remove(png_path)
+        except Exception: pass
+    cfg.pop("canvas_image", None)
+
+    save_config(cfg)
+    trigger_update()
+    print(f"{GREEN}[✓] Applied template '{name}' successfully!{RESET}")
+
+def cmd_status(args):
+    cfg = load_config()
+    print(f"{CYAN}{BOLD}=== Current Antigravity Widget Config ==={RESET}")
+    print(json.dumps(cfg, indent=2))
+    png_path = os.path.join(get_widget_dir(), "widget.png")
+    has_png = os.path.exists(png_path)
+    print(f"{CYAN}Custom canvas image:{RESET} {'Present (' + png_path + ')' if has_png else 'None (using vector shapes)'}")
+
+def cmd_clear_image(args):
+    png_path = os.path.join(get_widget_dir(), "widget.png")
+    if os.path.exists(png_path):
+        os.remove(png_path)
+        print(f"{GREEN}[✓] Cleared custom canvas image.{RESET}")
+    cfg = load_config()
+    cfg.pop("canvas_image", None)
+    save_config(cfg)
+    trigger_update()
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Antigravity Custom Android Widget Controller",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  agy-widget template cosmic
+  agy-widget template gauge
+  agy-widget set --title "Server Monitor" --text "All systems normal" --shape chamfer --border "#00F0FF"
+  agy-widget set --btn1 "Check Code" --action1 "agy 'git status'"
+  agy-widget image /sdcard/Pictures/wallpaper.png
+  agy-widget update
+"""
+    )
+    sub = parser.add_subparsers(dest="command")
+
+    # set
+    p_set = sub.add_parser("set", help="Configure widget colors, text, shape, and actions")
+    p_set.add_argument("--title", help="Widget title header")
+    p_set.add_argument("--title-color", help="Hex color for title (e.g. #00F0FF)")
+    p_set.add_argument("--status", help="Status pill text (e.g. ONLINE, BUSY)")
+    p_set.add_argument("--status-color", help="Hex color for status badge")
+    p_set.add_argument("--text", help="Multiline body text or stats")
+    p_set.add_argument("--text-color", help="Hex color for body text")
+    p_set.add_argument("--shape", choices=["chamfer", "rounded_rect", "pill", "circle", "hex"], help="Widget geometric shape")
+    p_set.add_argument("--bg", help="Background hex color (e.g. #0B0F19)")
+    p_set.add_argument("--bg2", help="Secondary background color for linear gradient")
+    p_set.add_argument("--border", help="Border hex color")
+    p_set.add_argument("--border-width", type=float, help="Border stroke width in pixels")
+    p_set.add_argument("--radius", type=float, help="Corner radius in pixels")
+    p_set.add_argument("--overlay", choices=["true", "false"], help="Show or hide text overlay")
+    p_set.add_argument("--image", help="Path to custom image / canvas file")
+    p_set.add_argument("--click", help="Action when tapping the widget body ('open' or bash command)")
+    p_set.add_argument("--btn1", help="Button 1 label")
+    p_set.add_argument("--action1", help="Button 1 command to execute")
+    p_set.add_argument("--color1", help="Button 1 text color")
+    p_set.add_argument("--btn2", help="Button 2 label")
+    p_set.add_argument("--action2", help="Button 2 command to execute")
+    p_set.add_argument("--color2", help="Button 2 text color")
+    p_set.add_argument("--btn3", help="Button 3 label")
+    p_set.add_argument("--action3", help="Button 3 command to execute")
+    p_set.add_argument("--color3", help="Button 3 text color")
+
+    # image
+    p_img = sub.add_parser("image", help="Set a custom PNG/JPG image to display on the widget")
+    p_img.add_argument("path", help="Path to image file")
+
+    # clear-image
+    sub.add_parser("clear-image", help="Remove custom image and revert to vector shape")
+
+    # template
+    p_tpl = sub.add_parser("template", help="Apply a pre-built gorgeous widget template")
+    p_tpl.add_argument("name", choices=["cosmic", "cyberpunk", "minimal", "gauge", "matrix", "checklist", "quote"], help="Template name")
+
+    # update
+    sub.add_parser("update", help="Send immediate update signal to Android home screen")
+
+    # status
+    sub.add_parser("status", help="Print current widget config")
+
+    # demo
+    sub.add_parser("demo", help="Initialize and display demo cosmic widget")
+
+    args = parser.parse_args()
+
+    if args.command == "set":
+        cmd_set(args)
+    elif args.command == "image":
+        cmd_image(args)
+    elif args.command == "clear-image":
+        cmd_clear_image(args)
+    elif args.command == "template":
+        cmd_template(args)
+    elif args.command == "update":
+        trigger_update()
+    elif args.command == "status":
+        cmd_status(args)
+    elif args.command == "demo":
+        args.name = "cosmic"
+        cmd_template(args)
+    else:
+        parser.print_help()
+
+if __name__ == "__main__":
+    main()

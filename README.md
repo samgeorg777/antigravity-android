@@ -28,6 +28,13 @@ Built with a dedicated package ID (`com.agycli`), it installs and runs completel
   - Built-in on-device ADB loopback controller allowing Antigravity (`agy`) and the terminal to control the Android phone autonomously.
   - Supports screen capture (`agy-device screenshot`), UI tree inspection (`agy-device ui-dump`), touch simulation (`agy-device tap`, `agy-device swipe`), text input (`agy-device text`), key events (`agy-device key`), and app launching (`agy-device launch`).
   - Works locally without a PC using Android 11+ Wireless Debugging or USB debugging.
+- **Custom Android Home Screen Widget Engine (`agy-widget`):**
+  - Create and control fully dynamic home screen widgets directly from Antigravity CLI and bash.
+  - **Custom Colours & Gradients:** Any hex color, linear background gradient, and neon accents.
+  - **Custom Shapes:** Native vector shapes including cyberpunk chamfer (`chamfer`), pill (`pill`), circle (`circle`), hexagonal badge (`hex`), and rounded rectangle (`rounded_rect`).
+  - **Full Custom Graphics & Photos:** Set any image, chart, or Python-rendered canvas onto the widget (`agy-widget image`).
+  - **Interactive Action Buttons:** Up to 3 customizable action buttons + whole card tap that can trigger shell scripts, run Antigravity prompts (`agy "..."`), or refresh widget telemetry in real-time.
+  - **Built-in Templates:** `cosmic`, `cyberpunk`, `minimal`, `gauge`, `matrix`, `checklist`, and `quote`.
 - **Image & File Picker (`[IMG]` / `[FILE]`):**
   - **Extra Keys Bar:** Tap `[IMG]` right above your soft keyboard to open the Android image gallery/picker, or swipe up on `[IMG]` (popup: `[FILE]`) to select any file.
   - **Left Drawer:** Swipe from the left edge to find dedicated **Add Image** and **Add File** buttons.
@@ -137,6 +144,68 @@ Antigravity CLI can autonomously navigate your phone, click buttons, type text, 
 
 ---
 
+### 6. Creating Custom Home Screen Widgets (`agy-widget`)
+Antigravity CLI includes a full-fledged dynamic widget engine allowing you or `agy` to design and deploy custom widgets to your Android home screen:
+
+#### Step 1: Add the Widget to your Home Screen
+1. Long-press on an empty area of your Android home screen and tap **Widgets**.
+2. Find **Antigravity CLI** and drag the **Antigravity Widget** onto your screen.
+3. You can resize it to any size (2x1, 3x2, 4x2, full screen).
+
+#### Step 2: Use Built-In Visual Templates
+Instantly switch the widget's design and functionality from the terminal:
+```bash
+# Futuristic cosmic obsidian HUD with live memory, battery, and AI action
+agy-widget template cosmic
+
+# Visual telemetry gauge with memory, battery & monitor
+agy-widget template gauge
+
+# Cyberpunk matrix terminal monitor
+agy-widget template matrix
+
+# Minimalist glass card with clock and status
+agy-widget template minimal
+
+# Interactive task checklist with quick-done actions
+agy-widget template checklist
+
+# Daily AI agent quote & scratchpad
+agy-widget template quote
+```
+
+#### Step 3: Customize Anything (Colour, Shape, Text, Actions)
+You have total control over colors, geometry, and buttons:
+```bash
+agy-widget set \
+  --title "AI Command Hub" \
+  --title-color "#00F0FF" \
+  --status "ACTIVE" \
+  --status-color "#22C55E" \
+  --text "Server: Running on 127.0.0.1:8080\nAll agent tasks normal." \
+  --text-color "#E2E8F0" \
+  --shape chamfer \
+  --bg "#E60B0F19" \
+  --bg2 "#E6151B28" \
+  --border "#00F0FF" \
+  --btn1 "Run AI" --action1 "agy 'status report'" \
+  --btn2 "Restart" --action2 "pm2 restart all" \
+  --btn3 "Update" --action3 "agy-widget template cosmic"
+```
+
+#### Step 4: Display Any Custom Graphic or Photo
+```bash
+# Display any photo, chart, or Python-generated graphic
+agy-widget image ~/uploads/my_chart.png
+
+# Revert to vector shape
+agy-widget clear-image
+```
+
+*(You can also use the alias `widget` instead of `agy-widget`).*
+
+---
+
 ## 🛠️ Repository Structure
 
 ```
@@ -146,12 +215,14 @@ antigravity-android/
 │       └── build-apk.yml          # Automated GitHub Actions APK build workflow
 ├── scripts/
 │   ├── agy-device                 # Autonomous Android device controller (ADB loopback)
+│   ├── agy-widget                 # Dynamic Android home screen widget controller
+│   ├── patch-faccessat            # Syscall patcher for Android seccomp compatibility
 │   ├── antigravity-autostart.sh   # Session autostart, DNS setup & USB auto-linker
 │   ├── customize-termux.sh        # Package rename, glibc injection & build pipeline
 │   ├── inject_glibc.py            # Injects glibc libraries into bootstrap archive
 │   ├── patch_bootstrap.py         # Patches binary package paths (com.termux -> com.agycli)
 │   ├── patch_gradle.py            # Disables upstream bootstraps & configures build
-│   └── patch_termux_features.py   # Patches clickable links, drag & drop, storage & ADB
+│   └── patch_termux_features.py   # Patches clickable links, drag & drop, widgets & ADB
 └── README.md
 ```
 

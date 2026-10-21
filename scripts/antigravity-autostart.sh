@@ -112,6 +112,12 @@ if [ ! -f "$HOME/.config/gh/hosts.yml" ] && [ -f "$HOME/storage/downloads/hosts.
     chmod 600 "$HOME/.config/gh/hosts.yml" 2>/dev/null || true
 fi
 
+# Ensure Antigravity widget directories and default configuration exist
+mkdir -p "$HOME/.antigravity/widgets"
+if [ ! -f "$HOME/.antigravity/widgets/widget.json" ] && [ -x "$PREFIX/bin/agy-widget" ]; then
+    "$PREFIX/bin/agy-widget" demo >/dev/null 2>&1 || true
+fi
+
 # Check if Antigravity CLI is already installed
 if [ ! -x "$PREFIX/bin/agy" ] || [ ! -x "$PREFIX/bin/agy.va39" ]; then
     clear

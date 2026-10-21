@@ -100,6 +100,11 @@ ln -sf agy-device "$TMP_WORK/extracted/bin/control"
 cp "$SCRIPT_DIR/patch-faccessat" "$TMP_WORK/extracted/bin/patch-faccessat"
 chmod 755 "$TMP_WORK/extracted/bin/patch-faccessat"
 
+# Inject agy-widget custom widget controller tool
+cp "$SCRIPT_DIR/agy-widget" "$TMP_WORK/extracted/bin/agy-widget"
+chmod 755 "$TMP_WORK/extracted/bin/agy-widget"
+ln -sf agy-widget "$TMP_WORK/extracted/bin/widget"
+
 cat << 'EOF' > "$TMP_WORK/extracted/home/.termux/colors.properties"
 background=#0B0F19
 foreground=#E2E8F0
