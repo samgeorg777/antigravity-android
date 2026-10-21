@@ -1,0 +1,303 @@
+#!/data/data/com.agycli/files/usr/bin/bash
+# ==============================================================================
+# agy-device: Antigravity Autonomous Device Controller for Android
+# Allows Antigravity CLI (agy) and the user to fully control the Android device
+# via local ADB / Wireless Debugging / USB Debugging loopback.
+# ==============================================================================
+
+CYAN="\033[38;2;0;240;255m"
+BLUE="\033[38;2;56;189;248m"
+PURPLE="\033[38;2;168;85;247m"
+GREEN="\033[38;2;34;197;94m"
+RED="\033[38;2;239;68;68m"
+YELLOW="\033[38;2;234;179;8m"
+WHITE="\033[38;2;248;250;252m"
+GRAY="\033[38;2;148;163;184m"
+RESET="\033[0m"
+BOLD="\033[1m"
+
+ensure_adb() {
+    if ! command -v adb >/dev/null 2>&1; then
+        echo -e "${YELLOW}[!] 'adb' (android-tools) is not installed.${RESET}"
+        echo -e "${CYAN}[*] Automatically installing android-tools via package manager...${RESET}"
+        pkg install -y android-tools || apt-get install -y android-tools
+        if ! command -v adb >/dev/null 2>&1; then
+            echo -e "${RED}[✗] Failed to install android-tools. Please run: pkg install android-tools${RESET}"
+            exit 1
+        fi
+        echo -e "${GREEN}[✓] android-tools installed successfully!${RESET}"
+    fi
+}
+
+check_connection() {
+    ensure_adb
+    devices=$(adb devices | grep -v "List of devices" | grep "device$" | awk '{print $1}')
+    if [ -z "$devices" ]; then
+        return 1
+    fi
+    return 0
+}
+
+require_connection() {
+    if ! check_connection; then
+        echo -e "${RED}[✗] No active ADB device connected!${RESET}"
+        echo -e "${YELLOW}[*] To connect Antigravity to this device:${RESET}"
+        echo -e "    1. Run: ${CYAN}agy-device setup${RESET}"
+        echo -e "    2. Or if you have a port: ${CYAN}agy-device connect <port>${RESET}"
+        exit 1
+    fi
+}
+
+cmd_status() {
+    ensure_adb
+    echo -e "${PURPLE}=== Antigravity Device Controller Status ===${RESET}"
+    devices=$(adb devices | grep -v "List of devices" | grep -v "^$" || true)
+    if [ -z "$devices" ]; then
+        echo -e "Status: ${RED}Disconnected${RESET}"
+        echo -e "Tip: Run ${CYAN}agy-device setup${RESET} to link this phone via Wireless Debugging."
+    else
+        echo -e "Status: ${GREEN}Connected & Ready${RESET}"
+        echo "$devices"
+        echo ""
+        # Get basic device info
+        model=$(adb shell getprop ro.product.model 2>/dev/null || echo "Unknown")
+        android_ver=$(adb shell getprop ro.build.version.release 2>/dev/null || echo "Unknown")
+        battery=$(adb shell dumpsys battery 2>/dev/null | grep "level:" | awk '{print $2}' || echo "N/A")
+        size=$(adb shell wm size 2>/dev/null | awk '{print $3}' || echo "N/A")
+        echo -e "${GRAY}Device:${RESET}     $model (Android $android_ver)"
+        echo -e "${GRAY}Resolution:${RESET} $size"
+        echo -e "${GRAY}Battery:${RESET}    $battery%"
+    fi
+}
+
+cmd_setup() {
+    ensure_adb
+    echo -e "${PURPLE}╭────────────────────────────────────────────────────────────╮${RESET}"
+    echo -e "${PURPLE}│  ${CYAN}${BOLD}▲  Antigravity Device Controller Setup${RESET}${PURPLE}                    │${RESET}"
+    echo -e "${PURPLE}╰────────────────────────────────────────────────────────────╯${RESET}"
+    echo ""
+    echo -e "${WHITE}To give Antigravity CLI full control over this Android phone:${RESET}"
+    echo ""
+    echo -e "  ${CYAN}1.${RESET} Open ${BOLD}Developer Options${RESET} on your phone:"
+    echo -e "     (Opening settings now...)"
+    am start -a android.settings.APPLICATION_DEVELOPMENT_SETTINGS >/dev/null 2>&1 || true
+    echo ""
+    echo -e "  ${CYAN}2.${RESET} Scroll down and turn ON ${BOLD}Wireless debugging${RESET}."
+    echo -e "  ${CYAN}3.${RESET} Tap on ${BOLD}Wireless debugging${RESET} -> tap ${BOLD}Pair device with pairing code${RESET}."
+    echo -e "  ${CYAN}4.${RESET} You will see an IP, Port, and a 6-digit Code."
+    echo ""
+    echo -e "  ${CYAN}5.${RESET} Then come back here and run:"
+    echo -e "     ${GREEN}agy-device pair <port> <code>${RESET}"
+    echo -e "     ${GREEN}agy-device connect <port>${RESET}"
+    echo ""
+}
+
+cmd_pair() {
+    ensure_adb
+    port="$1"
+    code="$2"
+    if [ -z "$port" ] || [ -z "$code" ]; then
+        echo -e "${RED}Usage: agy-device pair <port> <code>${RESET}"
+        echo -e "Example: agy-device pair 42135 123456"
+        exit 1
+    fi
+    echo -e "${CYAN}[*] Pairing with localhost:$port...${RESET}"
+    adb pair "localhost:$port" "$code"
+}
+
+cmd_connect() {
+    ensure_adb
+    port="${1:-5555}"
+    echo -e "${CYAN}[*] Connecting to localhost:$port...${RESET}"
+    adb connect "localhost:$port"
+    adb devices
+}
+
+cmd_screenshot() {
+    require_connection
+    mkdir -p "$HOME/uploads"
+    target="${1:-$HOME/uploads/screenshot.png}"
+    echo -e "${CYAN}[*] Capturing screen...${RESET}"
+    adb exec-out screencap -p > "$target"
+    if [ -s "$target" ]; then
+        echo -e "${GREEN}[✓] Screenshot saved to:${RESET} $target"
+        ls -lh "$target"
+    else
+        echo -e "${RED}[✗] Failed to capture screenshot${RESET}"
+        exit 1
+    fi
+}
+
+cmd_tap() {
+    require_connection
+    x="$1"
+    y="$2"
+    if [ -z "$x" ] || [ -z "$y" ]; then
+        echo -e "${RED}Usage: agy-device tap <x> <y>${RESET}"
+        exit 1
+    fi
+    echo -e "${CYAN}[*] Tapping screen at ($x, $y)...${RESET}"
+    adb shell input tap "$x" "$y"
+}
+
+cmd_swipe() {
+    require_connection
+    x1="$1"
+    y1="$2"
+    x2="$3"
+    y2="$4"
+    dur="${5:-300}"
+    if [ -z "$x1" ] || [ -z "$y1" ] || [ -z "$x2" ] || [ -z "$y2" ]; then
+        echo -e "${RED}Usage: agy-device swipe <x1> <y1> <x2> <y2> [duration_ms]${RESET}"
+        exit 1
+    fi
+    echo -e "${CYAN}[*] Swiping from ($x1, $y1) to ($x2, $y2)...${RESET}"
+    adb shell input swipe "$x1" "$y1" "$x2" "$y2" "$dur"
+}
+
+cmd_text() {
+    require_connection
+    txt="$*"
+    if [ -z "$txt" ]; then
+        echo -e "${RED}Usage: agy-device text \"<string>\"${RESET}"
+        exit 1
+    fi
+    echo -e "${CYAN}[*] Typing text: $txt${RESET}"
+    # Escape spaces for input text
+    escaped=$(echo "$txt" | sed 's/ /%s/g')
+    adb shell input text "$escaped"
+}
+
+cmd_key() {
+    require_connection
+    key="$1"
+    case "$key" in
+        HOME|home) code="KEYCODE_HOME" ;;
+        BACK|back) code="KEYCODE_BACK" ;;
+        ENTER|enter) code="KEYCODE_ENTER" ;;
+        POWER|power) code="KEYCODE_POWER" ;;
+        APP_SWITCH|recents|switch) code="KEYCODE_APP_SWITCH" ;;
+        VOLUME_UP|volup) code="KEYCODE_VOLUME_UP" ;;
+        VOLUME_DOWN|voldown) code="KEYCODE_VOLUME_DOWN" ;;
+        TAB|tab) code="KEYCODE_TAB" ;;
+        ESCAPE|esc) code="KEYCODE_ESCAPE" ;;
+        *) code="${key:-KEYCODE_HOME}" ;;
+    esac
+    echo -e "${CYAN}[*] Sending key: $code${RESET}"
+    adb shell input keyevent "$code"
+}
+
+cmd_launch() {
+    require_connection
+    app="$1"
+    case "$app" in
+        settings) pkg="com.android.settings" ;;
+        chrome|browser) pkg="com.android.chrome" ;;
+        youtube) pkg="com.google.android.youtube" ;;
+        camera)
+            adb shell am start -a android.media.action.STILL_IMAGE_CAMERA
+            return 0
+            ;;
+        *) pkg="$app" ;;
+    esac
+    echo -e "${CYAN}[*] Launching $pkg...${RESET}"
+    adb shell monkey -p "$pkg" -c android.intent.category.LAUNCHER 1 >/dev/null 2>&1 || \
+    adb shell am start -n "$pkg" >/dev/null 2>&1
+}
+
+cmd_ui_dump() {
+    require_connection
+    echo -e "${CYAN}[*] Dumping UI hierarchy...${RESET}"
+    adb shell uiautomator dump /sdcard/ui_dump.xml >/dev/null 2>&1
+    tmp_xml=$(mktemp)
+    adb exec-out cat /sdcard/ui_dump.xml > "$tmp_xml"
+    python3 -c "
+import xml.etree.ElementTree as ET, sys, re
+
+try:
+    tree = ET.parse('$tmp_xml')
+    root = tree.getroot()
+    elements = []
+    for node in root.iter('node'):
+        text = node.get('text', '') or node.get('content-desc', '')
+        bounds = node.get('bounds', '')
+        clickable = node.get('clickable', 'false')
+        cls = node.get('class', '').split('.')[-1]
+        if bounds and (text or clickable == 'true'):
+            m = re.findall(r'\[(\d+),(\d+)\]', bounds)
+            if len(m) == 2:
+                x1, y1 = int(m[0][0]), int(m[0][1])
+                x2, y2 = int(m[1][0]), int(m[1][1])
+                cx = (x1 + x2) // 2
+                cy = (y1 + y2) // 2
+                elements.append((cls, text, cx, cy, x1, y1, x2, y2))
+    
+    print(f'Found {len(elements)} UI elements on screen:')
+    for cls, text, cx, cy, x1, y1, x2, y2 in elements:
+        label = f'\"{text}\"' if text else f'[{cls}]'
+        print(f'  • {label:32} -> tap: agy-device tap {cx} {cy}')
+except Exception as e:
+    print('Failed to parse UI hierarchy:', e)
+"
+    rm -f "$tmp_xml"
+}
+
+cmd_shell() {
+    require_connection
+    adb shell "$@"
+}
+
+cmd_usb() {
+    echo -e "${PURPLE}=== Mounted Storage & USB Drives ===${RESET}"
+    mkdir -p "$HOME/storage"
+    ls -l "$HOME/storage" 2>/dev/null || true
+    echo ""
+    echo -e "${CYAN}Available Drive Mounts in /storage:${RESET}"
+    ls -la /storage/ 2>/dev/null || echo -e "${YELLOW}(Unlock All Files Access in drawer menu to see all drives)${RESET}"
+}
+
+cmd_help() {
+    echo -e "${PURPLE}Antigravity Autonomous Device Controller (${CYAN}agy-device${PURPLE})${RESET}"
+    echo ""
+    echo -e "Usage: ${CYAN}agy-device <command> [arguments]${RESET}"
+    echo ""
+    echo -e "Connection Commands:"
+    echo -e "  ${GREEN}status${RESET}                    Check ADB connection and device stats"
+    echo -e "  ${GREEN}setup${RESET}                     Guided setup wizard for Wireless Debugging"
+    echo -e "  ${GREEN}pair <port> <code>${RESET}        Pair with Wireless Debugging"
+    echo -e "  ${GREEN}connect [port]${RESET}            Connect to local ADB daemon"
+    echo ""
+    echo -e "Vision & Inspection Commands:"
+    echo -e "  ${GREEN}screenshot [path]${RESET}         Capture screen image (saved to ~/uploads/)"
+    echo -e "  ${GREEN}ui-dump${RESET}                   Dump clickable screen elements with coordinates"
+    echo ""
+    echo -e "Interaction & Touch Commands:"
+    echo -e "  ${GREEN}tap <x> <y>${RESET}               Tap screen at specific coordinates"
+    echo -e "  ${GREEN}swipe <x1> <y1> <x2> <y2>${RESET} Swipe/scroll between two coordinates"
+    echo -e "  ${GREEN}text \"<string>\"${RESET}          Type text into active field"
+    echo -e "  ${GREEN}key <HOME|BACK|...>${RESET}       Send navigation or hardware key"
+    echo "  launch <app_or_pkg>       Launch an app (e.g. chrome, settings, youtube)"
+    echo ""
+    echo -e "Storage & System Commands:"
+    echo -e "  ${GREEN}usb${RESET}                       List all internal and USB storage links"
+    echo -e "  ${GREEN}shell <command...>${RESET}        Run any raw ADB shell command"
+    echo ""
+}
+
+case "$1" in
+    status) cmd_status ;;
+    setup) cmd_setup ;;
+    pair) shift; cmd_pair "$@" ;;
+    connect) shift; cmd_connect "$@" ;;
+    screenshot) shift; cmd_screenshot "$@" ;;
+    tap) shift; cmd_tap "$@" ;;
+    swipe) shift; cmd_swipe "$@" ;;
+    text) shift; cmd_text "$@" ;;
+    key) shift; cmd_key "$@" ;;
+    launch) shift; cmd_launch "$@" ;;
+    ui-dump|uidump) cmd_ui_dump ;;
+    usb) cmd_usb ;;
+    shell) shift; cmd_shell "$@" ;;
+    help|--help|-h|"") cmd_help ;;
+    *) cmd_help ;;
+esac

@@ -176,6 +176,29 @@ def patch_termux(termux_dir):
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
                         android:text="Add File" />
+                </LinearLayout>
+
+                <LinearLayout
+                    style="?android:attr/buttonBarStyle"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/unlock_storage_button"
+                        style="?android:attr/buttonBarButtonStyle"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="All Files &amp; USB" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/developer_options_button"
+                        style="?android:attr/buttonBarButtonStyle"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Device Control" />
                 </LinearLayout>"""
 
         if target_xml in c and "add_image_button" not in c:
@@ -242,6 +265,20 @@ import java.util.List;"""
                 pickFileOrImage(false);
                 getDrawer().closeDrawers();
             });
+        }
+        View unlockStorageBtn = findViewById(R.id.unlock_storage_button);
+        if (unlockStorageBtn != null) {
+            unlockStorageBtn.setOnClickListener(v -> {
+                requestAllFilesAccess();
+                getDrawer().closeDrawers();
+            });
+        }
+        View devOptionsBtn = findViewById(R.id.developer_options_button);
+        if (devOptionsBtn != null) {
+            devOptionsBtn.setOnClickListener(v -> {
+                openDeveloperOptions();
+                getDrawer().closeDrawers();
+            });
         }"""
 
         if target_drawer in c and "add_image_button" not in c:
@@ -251,11 +288,13 @@ import java.util.List;"""
         target_cm = "menu.add(Menu.NONE, CONTEXT_MENU_SELECT_URL_ID, Menu.NONE, R.string.action_select_url);"
         replacement_cm = """menu.add(Menu.NONE, CONTEXT_MENU_SELECT_URL_ID, Menu.NONE, R.string.action_select_url);
         menu.add(Menu.NONE, CONTEXT_MENU_INSERT_IMAGE_ID, Menu.NONE, "Insert Image");
-        menu.add(Menu.NONE, CONTEXT_MENU_INSERT_FILE_ID, Menu.NONE, "Insert File");"""
+        menu.add(Menu.NONE, CONTEXT_MENU_INSERT_FILE_ID, Menu.NONE, "Insert File");
+        menu.add(Menu.NONE, CONTEXT_MENU_UNLOCK_STORAGE_ID, Menu.NONE, "All Files & USB Access");
+        menu.add(Menu.NONE, CONTEXT_MENU_DEV_OPTIONS_ID, Menu.NONE, "Device Control (ADB)");"""
 
         if target_cm in c and "CONTEXT_MENU_INSERT_IMAGE_ID" not in c:
             c = c.replace(target_cm, replacement_cm, 1)
-            print("[+] Added Insert Image / File to context menu in TermuxActivity.java")
+            print("[+] Added Insert Image / File / Storage / ADB to context menu in TermuxActivity.java")
 
         target_cms = "case CONTEXT_MENU_SELECT_URL_ID:"
         replacement_cms = """case CONTEXT_MENU_INSERT_IMAGE_ID:
@@ -263,6 +302,12 @@ import java.util.List;"""
                 return true;
             case CONTEXT_MENU_INSERT_FILE_ID:
                 pickFileOrImage(false);
+                return true;
+            case CONTEXT_MENU_UNLOCK_STORAGE_ID:
+                requestAllFilesAccess();
+                return true;
+            case CONTEXT_MENU_DEV_OPTIONS_ID:
+                openDeveloperOptions();
                 return true;
             case CONTEXT_MENU_SELECT_URL_ID:"""
 
@@ -289,6 +334,43 @@ import java.util.List;"""
     public static final int REQUEST_CODE_PICK_FILE = 2001;
     public static final int CONTEXT_MENU_INSERT_IMAGE_ID = 201;
     public static final int CONTEXT_MENU_INSERT_FILE_ID = 202;
+    public static final int CONTEXT_MENU_UNLOCK_STORAGE_ID = 203;
+    public static final int CONTEXT_MENU_DEV_OPTIONS_ID = 204;
+
+    public void requestAllFilesAccess() {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+            try {
+                Intent intent = new Intent(android.provider.Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION);
+                intent.setData(Uri.parse("package:" + getPackageName()));
+                startActivity(intent);
+                Toast.makeText(this, "Enable 'Allow access to manage all files' for full device & USB access", Toast.LENGTH_LONG).show();
+            } catch (Exception e) {
+                try {
+                    Intent intent = new Intent(android.provider.Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION);
+                    startActivity(intent);
+                    Toast.makeText(this, "Select Antigravity CLI and enable All Files Access", Toast.LENGTH_LONG).show();
+                } catch (Exception ex) {
+                    requestStoragePermission(true);
+                }
+            }
+        } else {
+            requestStoragePermission(true);
+        }
+    }
+
+    public void openDeveloperOptions() {
+        try {
+            Intent intent = new Intent(android.provider.Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS);
+            startActivity(intent);
+            Toast.makeText(this, "Enable 'Wireless debugging' or 'USB debugging' to control this device", Toast.LENGTH_LONG).show();
+        } catch (Exception e) {
+            try {
+                Intent intent = new Intent(android.provider.Settings.ACTION_DEVICE_INFO_SETTINGS);
+                startActivity(intent);
+                Toast.makeText(this, "Tap 'Build number' 7 times in About Phone to enable Developer Options", Toast.LENGTH_LONG).show();
+            } catch (Exception ignored) {}
+        }
+    }
 
     public void pickFileOrImage(boolean imagesOnly) {
         Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
@@ -454,6 +536,22 @@ import java.util.List;"""
 
         with open(act_file, "w", encoding="utf-8") as f:
             f.write(c)
+
+    # 6. AndroidManifest.xml (USB Host & Permissions)
+    manifest_file = os.path.join(termux_dir, "app/src/main/AndroidManifest.xml")
+    if os.path.exists(manifest_file):
+        with open(manifest_file, "r", encoding="utf-8") as f:
+            c = f.read()
+
+        usb_perms = """    <uses-feature android:name="android.hardware.usb.host" android:required="false" />
+    <uses-permission android:name="android.permission.USB_PERMISSION" />"""
+
+        if "android.hardware.usb.host" not in c:
+            c = c.replace("<uses-permission android:name=\"android.permission.INTERNET\" />",
+                          "<uses-permission android:name=\"android.permission.INTERNET\" />\n" + usb_perms)
+            with open(manifest_file, "w", encoding="utf-8") as f:
+                f.write(c)
+            print("[+] Added USB Host feature and permission to AndroidManifest.xml")
 
     print("[✓] Finished patching Termux features successfully!")
 

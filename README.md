@@ -18,6 +18,13 @@ Built with a dedicated package ID (`com.agycli`), it installs and runs completel
   - **Branded Drawer:** Left slide-out navigation features an Antigravity header with glowing logo and clean navigation.
 - **Pre-configured Glibc & Networking:** Comes with full glibc runtime pre-injected into the bootstrap rootfs, along with configured localhost name resolution (`/etc/hosts`, `resolv.conf`, `nsswitch.conf`, and `GODEBUG="netdns=cgo"`).
 - **Single-Tap Clickable URLs:** Any URL output by `agy` (such as GitHub OAuth verification links or localhost servers) can be clicked directly to open immediately in your Android browser, with automatic Markdown punctuation trimming.
+- **Full Storage & USB OTG Access:**
+  - One-tap unlock for Android 11+ `MANAGE_EXTERNAL_STORAGE` permission via the drawer button (**All Files & USB**) or long-press menu.
+  - Automatically mounts and symlinks internal storage (`~/storage/shared`, `downloads`, `dcim`, `pictures`) and any connected **USB Flash Drives / OTG Storage** (`~/storage/usb`, `~/storage/usb1..N`).
+- **Autonomous Android Device Control (`agy-device`):**
+  - Built-in on-device ADB loopback controller allowing Antigravity (`agy`) and the terminal to control the Android phone autonomously.
+  - Supports screen capture (`agy-device screenshot`), UI tree inspection (`agy-device ui-dump`), touch simulation (`agy-device tap`, `agy-device swipe`), text input (`agy-device text`), key events (`agy-device key`), and app launching (`agy-device launch`).
+  - Works locally without a PC using Android 11+ Wireless Debugging or USB debugging.
 - **Image & File Picker (`[IMG]` / `[FILE]`):**
   - **Extra Keys Bar:** Tap `[IMG]` right above your soft keyboard to open the Android image gallery/picker, or swipe up on `[IMG]` (popup: `[FILE]`) to select any file.
   - **Left Drawer:** Swipe from the left edge to find dedicated **Add Image** and **Add File** buttons.
@@ -63,6 +70,46 @@ You can pass images or documents to Antigravity CLI in several ways:
 - **Drag and drop** any image or file from a split-screen file manager directly into the terminal window.
 - The path (e.g. `/data/data/com.agycli/files/home/uploads/diagram.png`) will be typed right at your cursor!
 
+### 4. Full Device Storage & USB Drive Access
+To grant Antigravity CLI permission to view and edit files across your internal storage and USB drives:
+1. Swipe from the left edge of your screen to open the drawer.
+2. Tap **All Files & USB** (or long-press the terminal and choose **All Files & USB Access**).
+3. Toggle on **Allow access to manage all files** for *Antigravity CLI*.
+4. Your storage folders are now automatically accessible:
+   - `~/storage/shared` -> Internal storage root (`/sdcard`)
+   - `~/storage/downloads` -> Downloads folder
+   - `~/storage/usb` (and `usb1..N`) -> Connected USB flash drives or external OTG storage
+
+---
+
+### 5. Autonomous Device Control with `agy-device`
+Antigravity CLI can autonomously navigate your phone, click buttons, type text, capture screenshots, and automate tasks via local ADB:
+
+1. **Enable Wireless Debugging:**
+   - Tap **Device Control** in the left drawer (or long-press terminal -> **Device Control (ADB)**).
+   - In Developer Options, enable **Wireless debugging**.
+2. **Pair and Connect (One-Time / Local Loopback):**
+   - Tap **Pair device with pairing code** in Wireless debugging settings.
+   - Note the Port and 6-digit Wi-Fi pairing code.
+   - In Antigravity CLI, run:
+     ```bash
+     agy-device pair <PORT> <CODE>
+     agy-device connect <PORT>
+     ```
+3. **Autonomous CLI & AI Commands:**
+   Once connected, both you and the `agy` AI assistant can use the controller:
+   - `agy-device status` — Check ADB connection status.
+   - `agy-device screenshot` — Capture screen to `~/uploads/screen.png` for visual analysis.
+   - `agy-device ui-dump` — Dump all interactive buttons, text, and screen bounds.
+   - `agy-device tap <x> <y>` — Simulate a tap at coordinates (e.g. `agy-device tap 540 1200`).
+   - `agy-device swipe <x1> <y1> <x2> <y2>` — Scroll or swipe the screen.
+   - `agy-device text "hello world"` — Type text into active fields.
+   - `agy-device key <KEY_CODE>` — Press HOME (3), BACK (4), POWER (26), etc.
+   - `agy-device launch <package>` — Launch any Android app (e.g. `agy-device launch com.android.settings`).
+   - `agy-device shell <command>` — Run any privileged Android shell command.
+
+*(Aliases `device` and `control` are also available as shortcuts for `agy-device`).*
+
 ---
 
 ## 🛠️ Repository Structure
@@ -73,12 +120,13 @@ antigravity-android/
 │   └── workflows/
 │       └── build-apk.yml          # Automated GitHub Actions APK build workflow
 ├── scripts/
-│   ├── antigravity-autostart.sh   # Interactive session autostart & DNS setup
+│   ├── agy-device                 # Autonomous Android device controller (ADB loopback)
+│   ├── antigravity-autostart.sh   # Session autostart, DNS setup & USB auto-linker
 │   ├── customize-termux.sh        # Package rename, glibc injection & build pipeline
 │   ├── inject_glibc.py            # Injects glibc libraries into bootstrap archive
 │   ├── patch_bootstrap.py         # Patches binary package paths (com.termux -> com.agycli)
 │   ├── patch_gradle.py            # Disables upstream bootstraps & configures build
-│   └── patch_termux_features.py   # Patches clickable links, drag & drop, and file pickers
+│   └── patch_termux_features.py   # Patches clickable links, drag & drop, storage & ADB
 └── README.md
 ```
 

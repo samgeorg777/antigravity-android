@@ -90,6 +90,12 @@ mkdir -p "$TMP_WORK/extracted/etc/profile.d" "$TMP_WORK/extracted/home/.termux"
 cp "$SCRIPT_DIR/antigravity-autostart.sh" "$TMP_WORK/extracted/etc/profile.d/00-antigravity.sh"
 chmod 755 "$TMP_WORK/extracted/etc/profile.d/00-antigravity.sh"
 
+# Inject agy-device autonomous device controller tool
+cp "$SCRIPT_DIR/agy-device" "$TMP_WORK/extracted/bin/agy-device"
+chmod 755 "$TMP_WORK/extracted/bin/agy-device"
+ln -sf agy-device "$TMP_WORK/extracted/bin/device"
+ln -sf agy-device "$TMP_WORK/extracted/bin/control"
+
 cat << 'EOF' > "$TMP_WORK/extracted/home/.termux/colors.properties"
 background=#0B0F19
 foreground=#E2E8F0

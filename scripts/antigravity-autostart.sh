@@ -72,6 +72,34 @@ color15=#FFFFFF
 EOF
 fi
 
+# Auto-link internal shared storage and any connected USB drives
+mkdir -p "$HOME/storage"
+if [ -d "/storage/emulated/0" ] && [ ! -e "$HOME/storage/shared" ]; then
+    ln -sf "/storage/emulated/0" "$HOME/storage/shared" 2>/dev/null || true
+fi
+if [ -d "/storage/emulated/0/Download" ] && [ ! -e "$HOME/storage/downloads" ]; then
+    ln -sf "/storage/emulated/0/Download" "$HOME/storage/downloads" 2>/dev/null || true
+fi
+if [ -d "/storage/emulated/0/DCIM" ] && [ ! -e "$HOME/storage/dcim" ]; then
+    ln -sf "/storage/emulated/0/DCIM" "$HOME/storage/dcim" 2>/dev/null || true
+fi
+if [ -d "/storage/emulated/0/Pictures" ] && [ ! -e "$HOME/storage/pictures" ]; then
+    ln -sf "/storage/emulated/0/Pictures" "$HOME/storage/pictures" 2>/dev/null || true
+fi
+
+# Detect and link USB OTG drives and external SD cards
+usb_count=1
+for drive in /storage/*; do
+    d_base=$(basename "$drive" 2>/dev/null || true)
+    if [ "$d_base" != "emulated" ] && [ "$d_base" != "self" ] && [ "$d_base" != "*" ] && [ -d "$drive" ]; then
+        if [ $usb_count -eq 1 ]; then
+            ln -sf "$drive" "$HOME/storage/usb" 2>/dev/null || true
+        fi
+        ln -sf "$drive" "$HOME/storage/usb$usb_count" 2>/dev/null || true
+        usb_count=$((usb_count + 1))
+    fi
+done
+
 # Check if Antigravity CLI is already installed
 if [ ! -x "$PREFIX/bin/agy" ] || [ ! -x "$PREFIX/bin/agy.va39" ]; then
     clear
