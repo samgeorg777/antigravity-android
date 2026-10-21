@@ -96,8 +96,22 @@ def apply_theme(termux_dir):
     print("[+] Created Antigravity window transition animations")
 
     # =========================================================================
-    # 3. Styles & Themes with Antigravity Theme & Animations
+    # 3. Colors, Styles & Themes with Antigravity Theme & Animations
     # =========================================================================
+    colors_xml = os.path.join(termux_dir, "app/src/main/res/values/colors.xml")
+    colors_content = """<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="antigravity_bg">#0B0F19</color>
+    <color name="antigravity_cyan">#00F0FF</color>
+    <color name="antigravity_purple">#7928CA</color>
+    <color name="antigravity_text">#E2E8F0</color>
+    <color name="antigravity_keys_bg">#111625</color>
+    <color name="antigravity_keys_active_bg">#1E293B</color>
+</resources>"""
+    with open(colors_xml, "w", encoding="utf-8") as f:
+        f.write(colors_content)
+    print("[+] Created Antigravity color resources in app/colors.xml")
+
     styles_xml = os.path.join(termux_dir, "app/src/main/res/values/styles.xml")
     if os.path.exists(styles_xml):
         with open(styles_xml, "r", encoding="utf-8") as f:
@@ -129,12 +143,12 @@ def apply_theme(termux_dir):
             theme_replacement = """    <!-- Antigravity Dark Cosmic Activity Theme -->
     <style name="Theme.TermuxActivity.DayNight.NoActionBar" parent="Theme.TermuxApp.DayNight.NoActionBar">
         <!-- Brand Colors -->
-        <item name="colorPrimary">#00F0FF</item>
-        <item name="colorPrimaryVariant">#7928CA</item>
-        <item name="colorAccent">#00F0FF</item>
+        <item name="colorPrimary">@color/antigravity_cyan</item>
+        <item name="colorPrimaryVariant">@color/antigravity_purple</item>
+        <item name="colorAccent">@color/antigravity_cyan</item>
 
-        <item name="android:windowBackground">#0B0F19</item>
-        <item name="android:colorBackground">#0B0F19</item>
+        <item name="android:windowBackground">@color/antigravity_bg</item>
+        <item name="android:colorBackground">@color/antigravity_bg</item>
         <item name="android:windowAnimationStyle">@style/AntigravityWindowAnimation</item>
 
         <item name="android:windowActionModeOverlay">true</item>
@@ -146,14 +160,14 @@ def apply_theme(termux_dir):
 
         <!-- Left Drawer -->
         <item name="buttonBarButtonStyle">@style/TermuxActivity.Drawer.ButtonBarStyle.Dark</item>
-        <item name="termuxActivityDrawerBackground">#0B0F19</item>
-        <item name="termuxActivityDrawerImageTint">#00F0FF</item>
+        <item name="termuxActivityDrawerBackground">@color/antigravity_bg</item>
+        <item name="termuxActivityDrawerImageTint">@color/antigravity_cyan</item>
 
         <!-- Extra Keys Bar Colors -->
-        <item name="extraKeysButtonTextColor">#E2E8F0</item>
-        <item name="extraKeysButtonActiveTextColor">#00F0FF</item>
-        <item name="extraKeysButtonBackgroundColor">#111625</item>
-        <item name="extraKeysButtonActiveBackgroundColor">#1E293B</item>
+        <item name="extraKeysButtonTextColor">@color/antigravity_text</item>
+        <item name="extraKeysButtonActiveTextColor">@color/antigravity_cyan</item>
+        <item name="extraKeysButtonBackgroundColor">@color/antigravity_keys_bg</item>
+        <item name="extraKeysButtonActiveBackgroundColor">@color/antigravity_keys_active_bg</item>
     </style>"""
 
             pattern = r'<style name="Theme\.TermuxActivity\.DayNight\.NoActionBar" parent="Theme\.TermuxApp\.DayNight\.NoActionBar">.*?</style>'
@@ -333,9 +347,9 @@ def apply_theme(termux_dir):
             c = c.replace(old_header, new_header)
             print("[+] Added Antigravity branded header to left drawer")
 
-        # Set toolbar ViewPager background to deep cosmic #0B0F19
+        # Set toolbar ViewPager background to deep cosmic @color/antigravity_bg
         c = c.replace('android:id="@+id/terminal_toolbar_view_pager"\n            android:visibility="gone"\n            android:layout_width="match_parent"\n            android:layout_height="37.5dp"\n            android:background="@color/black"',
-                      'android:id="@+id/terminal_toolbar_view_pager"\n            android:visibility="gone"\n            android:layout_width="match_parent"\n            android:layout_height="37.5dp"\n            android:background="#0B0F19"')
+                      'android:id="@+id/terminal_toolbar_view_pager"\n            android:visibility="gone"\n            android:layout_width="match_parent"\n            android:layout_height="37.5dp"\n            android:background="@color/antigravity_bg"')
 
         with open(layout_file, "w", encoding="utf-8") as f:
             f.write(c)
