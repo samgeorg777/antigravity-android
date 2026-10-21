@@ -33,11 +33,10 @@ nameserver 1.1.1.1
 EOF
     fi
 
-    # Set up glibc if needed
-    if [ ! -d "$PREFIX/glibc" ]; then
-        echo "  [*] Installing required glibc support..."
-        pkg install -y glibc-repo 2>/dev/null || true
-        pkg install -y glibc resolv-conf 2>/dev/null || true
+    # Ensure glibc permissions
+    if [ -d "$PREFIX/glibc" ]; then
+        chmod -R 755 "$PREFIX/glibc" 2>/dev/null || true
+        chmod +x "$PREFIX/glibc/lib/ld-linux-aarch64.so.1" 2>/dev/null || true
     fi
 
     echo "  [*] Downloading Antigravity CLI engine..."

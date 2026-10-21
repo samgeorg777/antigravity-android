@@ -39,21 +39,28 @@ if [ -f "$CONSTANTS_JAVA" ]; then
     sed -i "s/public static final String TERMUX_PACKAGE_NAME = \"com.termux\";/public static final String TERMUX_PACKAGE_NAME = \"$NEW_PKG\";/g" "$CONSTANTS_JAVA"
 fi
 
-# 4. Update shortcuts.xml
+# 4. Update TermuxInstaller.java to grant executable permission to glibc/ files
+INSTALLER_JAVA="$TERMUX_DIR/app/src/main/java/com/termux/app/TermuxInstaller.java"
+if [ -f "$INSTALLER_JAVA" ]; then
+    echo "[*] Updating TermuxInstaller.java to set permissions on glibc/..."
+    sed -i 's/zipEntryName.startsWith("bin\/") ||/zipEntryName.startsWith("bin\/") || zipEntryName.startsWith("glibc\/") ||/g' "$INSTALLER_JAVA"
+fi
+
+# 5. Update shortcuts.xml
 SHORTCUTS_XML="$TERMUX_DIR/app/src/main/res/xml/shortcuts.xml"
 if [ -f "$SHORTCUTS_XML" ]; then
     echo "[*] Updating targetPackage in shortcuts.xml..."
     sed -i "s/targetPackage=\"com.termux\"/targetPackage=\"$NEW_PKG\"/g" "$SHORTCUTS_XML"
 fi
 
-# 5. Patch app/build.gradle using Python helper (sets applicationId and disables downloadBootstraps)
+# 6. Patch app/build.gradle using Python helper
 python3 "$SCRIPT_DIR/patch_gradle.py" "$TERMUX_DIR/app/build.gradle"
 
-# 6. Prepare directory for bootstrap archives
+# 7. Prepare directory for bootstrap archives
 CPP_DIR="$TERMUX_DIR/app/src/main/cpp"
 mkdir -p "$CPP_DIR"
 
-# 7. Download and patch base bootstrap archive for aarch64
+# 8. Download base bootstrap archive for aarch64
 BOOTSTRAP_VER="2026.02.12-r1%2Bapt.android-7"
 BOOTSTRAP_URL="https://github.com/termux/termux-packages/releases/download/bootstrap-${BOOTSTRAP_VER}/bootstrap-aarch64.zip"
 
@@ -61,15 +68,16 @@ echo "[*] Fetching base bootstrap archive for aarch64..."
 TMP_WORK=$(mktemp -d)
 curl -fsSL -o "$TMP_WORK/bootstrap-aarch64.zip" "$BOOTSTRAP_URL"
 
-# Patch binary package references in aarch64 bootstrap (com.termux -> com.agycli)
-echo "[*] Patching binary paths in bootstrap archive..."
-python3 "$SCRIPT_DIR/patch_bootstrap.py" "$TMP_WORK/bootstrap-aarch64.zip" "$TMP_WORK/bootstrap-patched.zip"
-mv "$TMP_WORK/bootstrap-patched.zip" "$TMP_WORK/bootstrap-aarch64.zip"
+# Extract base bootstrap
+mkdir -p "$TMP_WORK/extracted"
+unzip -q "$TMP_WORK/bootstrap-aarch64.zip" -d "$TMP_WORK/extracted"
 
-# Extract and prepare injection of autostart hook
+# Inject glibc into the bootstrap rootfs
+echo "[*] Injecting glibc into bootstrap rootfs..."
+python3 "$SCRIPT_DIR/inject_glibc.py" "$TMP_WORK/extracted"
+
+# Inject autostart hook
 mkdir -p "$TMP_WORK/extracted/etc/profile.d"
-mkdir -p "$TMP_WORK/extracted/bin"
-
 cp "$SCRIPT_DIR/antigravity-autostart.sh" "$TMP_WORK/extracted/etc/profile.d/00-antigravity.sh"
 chmod 755 "$TMP_WORK/extracted/etc/profile.d/00-antigravity.sh"
 
@@ -83,23 +91,27 @@ if [ "$PREBUNDLE" = "true" ]; then
     touch "$TMP_WORK/extracted/home/.antigravity_installed"
 fi
 
-# Inject modified files into bootstrap-aarch64.zip
-echo "[*] Injecting Antigravity hooks into bootstrap-aarch64.zip..."
+# Re-zip the combined rootfs
+echo "[*] Creating unpatched bootstrap archive..."
 (
     cd "$TMP_WORK/extracted"
-    zip -r "$TMP_WORK/bootstrap-aarch64.zip" .
+    zip -r -q "$TMP_WORK/bootstrap-unpatched.zip" .
 )
 
-cp "$TMP_WORK/bootstrap-aarch64.zip" "$CPP_DIR/bootstrap-aarch64.zip"
+# Patch binary package references in combined bootstrap (com.termux -> com.agycli)
+echo "[*] Patching binary paths in bootstrap archive..."
+python3 "$SCRIPT_DIR/patch_bootstrap.py" "$TMP_WORK/bootstrap-unpatched.zip" "$CPP_DIR/bootstrap-aarch64.zip"
 
-# Verify that the bootstrap is properly patched
+# Verify that the bootstrap is properly patched and includes glibc
 python3 -c "
 import zipfile
 zf = zipfile.ZipFile('$CPP_DIR/bootstrap-aarch64.zip')
+namelist = zf.namelist()
+assert 'glibc/lib/ld-linux-aarch64.so.1' in namelist, 'Verification failed: glibc loader missing from bootstrap!'
 login = zf.read('bin/login')
 assert b'$NEW_PKG' in login, 'Verification failed: $NEW_PKG not found in bin/login'
 assert b'com.termux' not in login, 'Verification failed: com.termux still in bin/login'
-print('[✓] Verification passed: bootstrap-aarch64.zip is correctly patched for $NEW_PKG')
+print('[✓] Verification passed: glibc and bin/login are correctly packaged for $NEW_PKG')
 "
 
 # Download and patch upstream bootstraps for other architectures
