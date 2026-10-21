@@ -544,9 +544,9 @@ import java.util.List;"""
                     mTerminalView.postDelayed(() -> {
                         TerminalSession session = getCurrentSession();
                         if (session != null) {
-                            session.write(cmd.trim() + "\n");
+                            session.write(cmd.trim() + "\\\\n");
                         } else if (mTerminalView.mEmulator != null) {
-                            mTerminalView.mEmulator.paste(cmd.trim() + "\n");
+                            mTerminalView.mEmulator.paste(cmd.trim() + "\\\\n");
                         }
                     }, 400);
                 }
