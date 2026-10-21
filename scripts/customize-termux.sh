@@ -78,7 +78,4 @@ BUILD_GRADLE="$TERMUX_DIR/app/build.gradle"
 echo "[*] Patching $BUILD_GRADLE to preserve custom bootstraps..."
 sed -i 's/def downloadBootstrap(arch, expectedChecksum, version) {/def downloadBootstrap(arch, expectedChecksum, version) { return; /g' "$BUILD_GRADLE"
 
-# 5. Disable uncompressed native libs check to ensure smooth packaging
-echo "android.bundle.enableUncompressedNativeLibs=false" >> "$TERMUX_DIR/gradle.properties"
-
 echo "=== Customization complete! Ready to compile. ==="
