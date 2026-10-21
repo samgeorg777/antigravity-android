@@ -41,6 +41,22 @@ def inject_glibc(dest_extracted_dir):
         else:
             raise RuntimeError(f"Glibc loader missing at {loader}")
 
+        # Configure hosts, resolv.conf, and nsswitch.conf inside glibc/etc and etc
+        hosts_content = "127.0.0.1 localhost\n::1 localhost ip6-localhost ip6-loopback\n"
+        resolv_content = "nameserver 8.8.8.8\nnameserver 1.1.1.1\n"
+        nsswitch_content = "hosts: files dns\nnetworks: files\n"
+
+        for etc_dir in [os.path.join(target_glibc, "etc"), os.path.join(dest_extracted_dir, "etc")]:
+            os.makedirs(etc_dir, exist_ok=True)
+            with open(os.path.join(etc_dir, "hosts"), "w") as f:
+                f.write(hosts_content)
+            with open(os.path.join(etc_dir, "resolv.conf"), "w") as f:
+                f.write(resolv_content)
+            with open(os.path.join(etc_dir, "nsswitch.conf"), "w") as f:
+                f.write(nsswitch_content)
+
+        print("[✓] Successfully injected networking files (hosts, resolv.conf, nsswitch.conf)")
+
 if __name__ == "__main__":
     import sys
     if len(sys.argv) < 2:

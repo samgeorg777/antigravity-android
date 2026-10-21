@@ -12,6 +12,36 @@ if [ -n "$AGY_ACTIVE_SESSION" ]; then
 fi
 export AGY_ACTIVE_SESSION=1
 
+# Configure networking, localhost resolution, and DNS paths
+mkdir -p "$PREFIX/etc" "$PREFIX/glibc/etc"
+
+cat << 'EOF' > "$PREFIX/etc/hosts"
+127.0.0.1 localhost
+::1 localhost ip6-localhost ip6-loopback
+EOF
+cp -f "$PREFIX/etc/hosts" "$PREFIX/glibc/etc/hosts"
+
+cat << 'EOF' > "$PREFIX/etc/resolv.conf"
+nameserver 8.8.8.8
+nameserver 1.1.1.1
+EOF
+cp -f "$PREFIX/etc/resolv.conf" "$PREFIX/glibc/etc/resolv.conf"
+
+cat << 'EOF' > "$PREFIX/etc/nsswitch.conf"
+hosts: files dns
+networks: files
+EOF
+cp -f "$PREFIX/etc/nsswitch.conf" "$PREFIX/glibc/etc/nsswitch.conf"
+
+# Ensure glibc permissions
+if [ -d "$PREFIX/glibc" ]; then
+    chmod -R 755 "$PREFIX/glibc" 2>/dev/null || true
+    chmod +x "$PREFIX/glibc/lib/ld-linux-aarch64.so.1" 2>/dev/null || true
+fi
+
+# Set Go DNS resolution to cgo (uses glibc getaddrinfo + /etc/hosts)
+export GODEBUG="netdns=cgo"
+
 # Check if Antigravity CLI is already installed
 if [ ! -x "$PREFIX/bin/agy" ] || [ ! -x "$PREFIX/bin/agy.va39" ]; then
     clear
@@ -23,21 +53,6 @@ EOF
     echo ""
     echo "  [*] First-time automatic setup in progress..."
     echo "  [*] Setting up DNS and runtime environment..."
-
-    # Ensure resolv.conf exists for proper DNS resolution in Android
-    mkdir -p "$PREFIX/etc"
-    if [ ! -f "$PREFIX/etc/resolv.conf" ]; then
-        cat << 'EOF' > "$PREFIX/etc/resolv.conf"
-nameserver 8.8.8.8
-nameserver 1.1.1.1
-EOF
-    fi
-
-    # Ensure glibc permissions
-    if [ -d "$PREFIX/glibc" ]; then
-        chmod -R 755 "$PREFIX/glibc" 2>/dev/null || true
-        chmod +x "$PREFIX/glibc/lib/ld-linux-aarch64.so.1" 2>/dev/null || true
-    fi
 
     echo "  [*] Downloading Antigravity CLI engine..."
     TMP_DIR=$(mktemp -d)

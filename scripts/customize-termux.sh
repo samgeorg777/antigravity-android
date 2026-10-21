@@ -108,6 +108,8 @@ import zipfile
 zf = zipfile.ZipFile('$CPP_DIR/bootstrap-aarch64.zip')
 namelist = zf.namelist()
 assert 'glibc/lib/ld-linux-aarch64.so.1' in namelist, 'Verification failed: glibc loader missing from bootstrap!'
+assert 'glibc/etc/hosts' in namelist, 'Verification failed: glibc/etc/hosts missing!'
+assert 'glibc/etc/resolv.conf' in namelist, 'Verification failed: glibc/etc/resolv.conf missing!'
 login = zf.read('bin/login')
 assert b'$NEW_PKG' in login, 'Verification failed: $NEW_PKG not found in bin/login'
 assert b'com.termux' not in login, 'Verification failed: com.termux still in bin/login'
