@@ -42,6 +42,9 @@ fi
 # Set Go DNS resolution to cgo (uses glibc getaddrinfo + /etc/hosts)
 export GODEBUG="netdns=cgo"
 
+# Ensure uploads directory exists for file/image drop and pick
+mkdir -p "$HOME/uploads"
+
 # Check if Antigravity CLI is already installed
 if [ ! -x "$PREFIX/bin/agy" ] || [ ! -x "$PREFIX/bin/agy.va39" ]; then
     clear

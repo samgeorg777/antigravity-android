@@ -56,6 +56,9 @@ fi
 # 6. Patch app/build.gradle using Python helper
 python3 "$SCRIPT_DIR/patch_gradle.py" "$TERMUX_DIR/app/build.gradle"
 
+# 6.1 Patch Termux UI features (Clickable URLs, Drag & Drop, Image/File Insert)
+python3 "$SCRIPT_DIR/patch_termux_features.py" "$TERMUX_DIR"
+
 # 7. Prepare directory for bootstrap archives
 CPP_DIR="$TERMUX_DIR/app/src/main/cpp"
 mkdir -p "$CPP_DIR"
