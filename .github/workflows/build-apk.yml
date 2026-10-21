@@ -32,9 +32,6 @@ jobs:
           distribution: "temurin"
           java-version: "17"
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-
       - name: Clone Termux Base Engine
         run: |
           echo "[*] Cloning termux-app repository..."
