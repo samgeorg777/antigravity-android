@@ -9,7 +9,13 @@ Built with a dedicated package ID (`com.agycli`), it installs and runs completel
 ## ✨ Features
 
 - **Zero Manual Setup:** Install the APK, open the app, and Antigravity CLI initializes automatically and launches straight into the `agy` prompt.
-- **Independent Installation (`com.agycli`):** Operates under its own package ID. You can run standard Termux and Antigravity CLI side-by-side with zero interference.
+- **Independent App & Identity (`com.agycli`):** Dedicated package ID, custom launcher name **Antigravity CLI**, and independent home storage. Runs side-by-side with standard Termux with zero conflict.
+- **Futuristic Antigravity Visual Theme:**
+  - **Custom Quantum Launcher Icons:** Custom vector and supersampled launcher icons across all screen densities with the signature levitating quantum delta emblem.
+  - **Deep Cosmic Palette:** Obsidian space background (`#0B0F19`), neon cyan accents (`#00F0FF`), quantum violet highlights (`#7928CA`), and crisp white text.
+  - **Pulsing Sci-Fi Cursor:** Terminal cursor pulses at 500ms like a modern mainframe.
+  - **Window & Launch Animations:** Smooth activity fade/scale transitions and an animated cosmic startup sequence in the terminal.
+  - **Branded Drawer:** Left slide-out navigation features an Antigravity header with glowing logo and clean navigation.
 - **Pre-configured Glibc & Networking:** Comes with full glibc runtime pre-injected into the bootstrap rootfs, along with configured localhost name resolution (`/etc/hosts`, `resolv.conf`, `nsswitch.conf`, and `GODEBUG="netdns=cgo"`).
 - **Single-Tap Clickable URLs:** Any URL output by `agy` (such as GitHub OAuth verification links or localhost servers) can be clicked directly to open immediately in your Android browser, with automatic Markdown punctuation trimming.
 - **Image & File Picker (`[IMG]` / `[FILE]`):**
