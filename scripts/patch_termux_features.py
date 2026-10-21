@@ -447,7 +447,7 @@ import java.util.List;"""
     }
 }
 """
-        if "pickFileOrImage" not in c:
+        if "public void pickFileOrImage" not in c:
             last_brace = c.rfind("}")
             c = c[:last_brace] + helper_methods
             print("[+] Added file import and drag-drop helper methods in TermuxActivity.java")
