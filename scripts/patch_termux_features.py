@@ -804,6 +804,7 @@ import java.util.List;"""
             android:textColor="#E2E8F0"
             android:textSize="11sp"
             android:lineSpacingExtra="2dp"
+            android:gravity="bottom"
             android:maxLines="4"
             android:ellipsize="end" />
 
@@ -899,6 +900,8 @@ import android.graphics.RectF;
 import android.graphics.Shader;
 import android.net.Uri;
 import android.os.Build;
+import android.os.Handler;
+import android.os.Looper;
 import android.os.VibrationEffect;
 import android.os.Vibrator;
 import android.view.View;
@@ -928,8 +931,125 @@ public class AntigravityWidgetProvider extends AppWidgetProvider {
     public static final String EXTRA_COMMAND = "com.agycli.extra.COMMAND";
     public static final String EXTRA_BTN_ID = "com.agycli.extra.BTN_ID";
 
-    private static final String[] THEME_SHAPES = {"chamfer", "matrix", "pill", "hex", "rounded_rect"};
+    private static final String[] THEME_SHAPES = {"chamfer", "matrix", "pill", "hex", "rounded_rect", "nothing_pet"};
     private static int sThemeIndex = 0;
+
+    // In-memory live state for immediate interactive feedback without disk lag
+    private static volatile boolean sIsSleeping = false;
+    private static volatile String sCurrentPetState = "idle";
+    private static volatile int sPetFrame = 0;
+    private static volatile String sPetMoodText = null;
+    private static volatile String sPetStatusText = null;
+    private static volatile String sPetStatusColor = null;
+
+    // Cat Bitmap definitions (18x18 subgrid)
+    private static final String[] CAT_IDLE_1 = {
+        "....##......##....",
+        "...####....####...",
+        "...######.######..",
+        "..##############..",
+        "..##############..",
+        "..##..######..##..",
+        "..##..######..##..",
+        "..##############..",
+        "...############...",
+        "....##########....",
+        ".....########.....",
+        "....##########....",
+        "...############...",
+        "..##############..",
+        "..##############..",
+        "..####.####.####..",
+        "..####.####.####..",
+        "...##...##...##..."
+    };
+
+    private static final String[] CAT_IDLE_2 = {
+        "....##......##....",
+        "...####....####...",
+        "...######.######..",
+        "..##############..",
+        "..##############..",
+        "..##############..",
+        "..##############..",
+        "..##############..",
+        "...############...",
+        "....##########....",
+        ".....########.....",
+        "....##########....",
+        "...############...",
+        "..##############..",
+        "..##############..",
+        "..####.####.####..",
+        "..####.####.####..",
+        "...##...##...###.."
+    };
+
+    private static final String[] CAT_SLEEP_1 = {
+        "..................",
+        "..................",
+        "..................",
+        "..................",
+        "..................",
+        "..................",
+        ".....########.....",
+        "...############...",
+        "..##############..",
+        "..##############..",
+        "..##..######..##..",
+        "..##############..",
+        "...############...",
+        "....##########....",
+        ".....########.....",
+        "......######......",
+        "..................",
+        ".................."
+    };
+
+    private static final String[] CAT_SLEEP_2 = {
+        "..................",
+        "..................",
+        "..................",
+        "..................",
+        "..................",
+        "......#...#.......",
+        ".....########.....",
+        "...############...",
+        "..##############..",
+        "..##############..",
+        "..##..######..##..",
+        "..##############..",
+        "...############...",
+        "....##########....",
+        ".....########.....",
+        "......######......",
+        "..................",
+        ".................."
+    };
+
+    private static final String[] SPRITE_HEART = {
+        "....##....##....",
+        "...####..####...",
+        "..############..",
+        "..############..",
+        "...##########...",
+        "....########....",
+        ".....######.....",
+        "......####......",
+        ".......##.......",
+        "................"
+    };
+
+    private static final String[] SPRITE_FISH = {
+        "......##........",
+        "....######..#...",
+        "...########.##..",
+        "...########.###.",
+        "....######..##..",
+        "......##....#...",
+        "................",
+        "................"
+    };
 
     @Override
     public void onUpdate(Context context, AppWidgetManager appWidgetManager, int[] appWidgetIds) {
@@ -956,13 +1076,243 @@ public class AntigravityWidgetProvider extends AppWidgetProvider {
             cycleTheme(context);
             refreshAllWidgets(context);
         } else if (ACTION_WIDGET_EXECUTE.equals(action)) {
-            vibrate(context, 30);
             String cmd = intent.getStringExtra(EXTRA_COMMAND);
-            if (cmd == null || cmd.isEmpty() || "open".equalsIgnoreCase(cmd)) {
-                cmd = "";
-            }
-            launchTerminal(context, cmd);
+            if (cmd == null) cmd = "";
+            handleWidgetAction(context, cmd.trim());
         }
+    }
+
+    private static void handleWidgetAction(Context context, String cmd) {
+        // 1. Explicit Open / Terminal actions
+        if ("open".equalsIgnoreCase(cmd) || "launch".equalsIgnoreCase(cmd) ||
+            cmd.startsWith("open:") || cmd.startsWith("terminal:")) {
+            vibrate(context, 35);
+            String termCmd = "";
+            if (cmd.startsWith("open:")) {
+                termCmd = cmd.substring(5).trim();
+            } else if (cmd.startsWith("terminal:")) {
+                termCmd = cmd.substring(9).trim();
+            }
+            launchTerminal(context, termCmd);
+            return;
+        }
+
+        // 2. Refresh action
+        if ("refresh".equalsIgnoreCase(cmd) || ACTION_WIDGET_REFRESH.equals(cmd)) {
+            vibrate(context, 35);
+            refreshAllWidgets(context);
+            return;
+        }
+
+        // 3. Theme cycle action
+        if ("theme".equalsIgnoreCase(cmd) || "cycle_theme".equalsIgnoreCase(cmd) || ACTION_WIDGET_CYCLE_THEME.equals(cmd)) {
+            vibrate(context, 45);
+            cycleTheme(context);
+            refreshAllWidgets(context);
+            return;
+        }
+
+        // 4. Pet actions (In-place on home screen - NEVER opens Termux!)
+        String lowerCmd = cmd.toLowerCase(Locale.US);
+        if (lowerCmd.equals("pet") || lowerCmd.startsWith("state:pet") || lowerCmd.contains("pet the cat") || lowerCmd.equals("love")) {
+            handlePetAction(context, "pet");
+            return;
+        }
+
+        if (lowerCmd.equals("fish") || lowerCmd.equals("feed") || lowerCmd.startsWith("state:fish") || lowerCmd.startsWith("state:feed") || lowerCmd.contains("fish") || lowerCmd.contains("feed")) {
+            handlePetAction(context, "fish");
+            return;
+        }
+
+        if (lowerCmd.equals("sleep") || lowerCmd.startsWith("state:sleep") || lowerCmd.startsWith("toggle:sleep") || lowerCmd.contains("sleep")) {
+            handlePetAction(context, "sleep");
+            return;
+        }
+
+        // 5. Generic Custom State (state:<name>)
+        if (cmd.startsWith("state:")) {
+            String stateName = cmd.substring(6).trim();
+            handleCustomState(context, stateName);
+            return;
+        }
+
+        // 6. Generic Text Update (text:<msg>)
+        if (cmd.startsWith("text:")) {
+            vibrate(context, 25);
+            String newText = cmd.substring(5).trim();
+            sPetMoodText = newText;
+            refreshAllWidgets(context);
+            return;
+        }
+
+        // 7. Generic Silent Background Execution (e.g. bash scripts, device actions)
+        // Does NOT open TermuxActivity!
+        vibrate(context, 30);
+        executeBackgroundCommand(context, cmd);
+    }
+
+    private static void handlePetAction(Context context, String petAction) {
+        if ("sleep".equals(petAction)) {
+            sIsSleeping = !sIsSleeping;
+            vibrate(context, sIsSleeping ? 25 : 45);
+            if (sIsSleeping) {
+                sCurrentPetState = "sleep";
+                sPetMoodText = "MOOD: SLEEPING 💤";
+                sPetStatusText = "ASLEEP";
+                sPetStatusColor = "#C084FC";
+            } else {
+                sCurrentPetState = "idle";
+                sPetMoodText = "MOOD: AWAKE";
+                sPetStatusText = "IDLE";
+                sPetStatusColor = "#22C55E";
+            }
+            refreshAllWidgets(context);
+            return;
+        }
+
+        // If sleeping, tapping pet or fish wakes up
+        if (sIsSleeping) {
+            sIsSleeping = false;
+        }
+
+        if ("pet".equals(petAction)) {
+            vibrate(context, 45);
+            sCurrentPetState = "pet";
+            sPetMoodText = "MOOD: PURRING ♥";
+            sPetStatusText = "HAPPY";
+            sPetStatusColor = "#FF5370";
+            sPetFrame = 0;
+            refreshAllWidgets(context);
+
+            new Thread(() -> {
+                try {
+                    Thread.sleep(300);
+                    sPetFrame = 1;
+                    postWidgetRefresh(context);
+
+                    Thread.sleep(300);
+                    sPetFrame = 2;
+                    postWidgetRefresh(context);
+
+                    Thread.sleep(300);
+                    sPetFrame = 0;
+                    postWidgetRefresh(context);
+
+                    Thread.sleep(2600);
+
+                    if (!sIsSleeping && "pet".equals(sCurrentPetState)) {
+                        sCurrentPetState = "idle";
+                        sPetMoodText = "MOOD: CHILL";
+                        sPetStatusText = "IDLE";
+                        sPetStatusColor = "#22C55E";
+                        sPetFrame = 0;
+                        postWidgetRefresh(context);
+                    }
+                } catch (Exception ignored) {}
+            }).start();
+            return;
+        }
+
+        if ("fish".equals(petAction)) {
+            vibratePattern(context, new long[]{0, 30, 60, 40});
+            sCurrentPetState = "fish";
+            sPetMoodText = "MOOD: MUNCHING 🐟";
+            sPetStatusText = "FEEDING";
+            sPetStatusColor = "#38BDF8";
+            sPetFrame = 0;
+            refreshAllWidgets(context);
+
+            new Thread(() -> {
+                try {
+                    Thread.sleep(350);
+                    sPetFrame = 1;
+                    postWidgetRefresh(context);
+
+                    Thread.sleep(350);
+                    sPetFrame = 2;
+                    postWidgetRefresh(context);
+
+                    Thread.sleep(350);
+                    sPetFrame = 0;
+                    postWidgetRefresh(context);
+
+                    Thread.sleep(2800);
+
+                    if (!sIsSleeping && "fish".equals(sCurrentPetState)) {
+                        sCurrentPetState = "idle";
+                        sPetMoodText = "MOOD: CHILL";
+                        sPetStatusText = "IDLE";
+                        sPetStatusColor = "#22C55E";
+                        sPetFrame = 0;
+                        postWidgetRefresh(context);
+                    }
+                } catch (Exception ignored) {}
+            }).start();
+            return;
+        }
+    }
+
+    private static void postWidgetRefresh(Context context) {
+        new Handler(Looper.getMainLooper()).post(() -> refreshAllWidgets(context));
+    }
+
+    private static void handleCustomState(Context context, String stateName) {
+        vibrate(context, 35);
+        try {
+            File jsonFile = findFile(context, ".antigravity/widgets/widget.json");
+            if (jsonFile.exists()) {
+                FileInputStream fis = new FileInputStream(jsonFile);
+                byte[] data = new byte[(int) jsonFile.length()];
+                fis.read(data);
+                fis.close();
+                JSONObject json = new JSONObject(new String(data, "UTF-8"));
+                JSONObject states = json.optJSONObject("states");
+                if (states != null && states.has(stateName)) {
+                    JSONObject st = states.getJSONObject(stateName);
+                    if (st.has("text")) sPetMoodText = st.getString("text");
+                    if (st.has("status")) sPetStatusText = st.getString("status");
+                    if (st.has("status_color")) sPetStatusColor = st.getString("status_color");
+                    sCurrentPetState = stateName;
+                    refreshAllWidgets(context);
+
+                    int autoRevert = st.optInt("auto_revert", 0);
+                    if (autoRevert > 0) {
+                        new Thread(() -> {
+                            try {
+                                Thread.sleep(autoRevert);
+                                sCurrentPetState = "idle";
+                                sPetMoodText = null;
+                                sPetStatusText = null;
+                                postWidgetRefresh(context);
+                            } catch (Exception ignored) {}
+                        }).start();
+                    }
+                    return;
+                }
+            }
+        } catch (Exception ignored) {}
+        sCurrentPetState = stateName;
+        refreshAllWidgets(context);
+    }
+
+    private static void executeBackgroundCommand(Context context, String command) {
+        if (command == null || command.trim().isEmpty()) return;
+        new Thread(() -> {
+            try {
+                String cleanCmd = command.startsWith("bg:") ? command.substring(3).trim() : command;
+                String bashPath = "/data/data/" + context.getPackageName() + "/files/usr/bin/bash";
+                File bashFile = new File(bashPath);
+                String[] cmdArray;
+                if (bashFile.exists()) {
+                    cmdArray = new String[]{bashPath, "-c", cleanCmd};
+                } else {
+                    cmdArray = new String[]{"/system/bin/sh", "-c", cleanCmd};
+                }
+                Process p = Runtime.getRuntime().exec(cmdArray);
+                p.waitFor();
+                postWidgetRefresh(context);
+            } catch (Exception ignored) {}
+        }).start();
     }
 
     private static void vibrate(Context context, long ms) {
@@ -973,6 +1323,19 @@ public class AntigravityWidgetProvider extends AppWidgetProvider {
                     v.vibrate(VibrationEffect.createOneShot(ms, VibrationEffect.DEFAULT_AMPLITUDE));
                 } else {
                     v.vibrate(ms);
+                }
+            }
+        } catch (Exception ignored) {}
+    }
+
+    private static void vibratePattern(Context context, long[] timings) {
+        try {
+            Vibrator v = (Vibrator) context.getSystemService(Context.VIBRATOR_SERVICE);
+            if (v != null && v.hasVibrator()) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    v.vibrate(VibrationEffect.createWaveform(timings, -1));
+                } else {
+                    v.vibrate(timings, -1);
                 }
             }
         } catch (Exception ignored) {}
@@ -1017,13 +1380,24 @@ public class AntigravityWidgetProvider extends AppWidgetProvider {
                 json = new JSONObject(new String(data, "UTF-8"));
             }
 
-            if ("chamfer".equals(newShape)) {
+            if ("nothing_pet".equals(newShape)) {
+                json.put("shape", "nothing_pet");
+                json.put("title", "NOTHING OS • PET");
+                json.put("title_color", "#888888");
+                json.put("status", "IDLE");
+                json.put("status_color", "#22C55E");
+                json.put("text", "MOOD: CHILL");
+                json.put("click_action", "pet");
+            } else if ("chamfer".equals(newShape)) {
                 json.put("shape", "chamfer");
                 json.put("bg", "#E60B0F19");
                 json.put("bg2", "#E6151B28");
                 json.put("border", "#00F0FF");
                 json.put("title", "ANTIGRAVITY // COSMIC");
                 json.put("title_color", "#00F0FF");
+                json.put("text", getLiveSystemStats());
+                json.put("status", "");
+                json.put("click_action", "open");
             } else if ("matrix".equals(newShape)) {
                 json.put("shape", "rounded_rect");
                 json.put("bg", "#F2030804");
@@ -1031,6 +1405,10 @@ public class AntigravityWidgetProvider extends AppWidgetProvider {
                 json.put("border", "#22C55E");
                 json.put("title", "ANTIGRAVITY // MATRIX");
                 json.put("title_color", "#22C55E");
+                json.put("text", getLiveSystemStats());
+                json.put("status", "ROOT");
+                json.put("status_color", "#22C55E");
+                json.put("click_action", "open");
             } else if ("pill".equals(newShape)) {
                 json.put("shape", "pill");
                 json.put("bg", "#CC0F172A");
@@ -1038,6 +1416,10 @@ public class AntigravityWidgetProvider extends AppWidgetProvider {
                 json.put("border", "#38BDF8");
                 json.put("title", "ANTIGRAVITY // GLASS");
                 json.put("title_color", "#38BDF8");
+                json.put("text", getLiveSystemStats());
+                json.put("status", "SYNCED");
+                json.put("status_color", "#38BDF8");
+                json.put("click_action", "open");
             } else if ("hex".equals(newShape)) {
                 json.put("shape", "hex");
                 json.put("bg", "#E6140B24");
@@ -1045,6 +1427,10 @@ public class AntigravityWidgetProvider extends AppWidgetProvider {
                 json.put("border", "#C084FC");
                 json.put("title", "ANTIGRAVITY // TELEMETRY");
                 json.put("title_color", "#C084FC");
+                json.put("text", getLiveSystemStats());
+                json.put("status", "MONITOR");
+                json.put("status_color", "#C084FC");
+                json.put("click_action", "open");
             } else {
                 json.put("shape", "rounded_rect");
                 json.put("bg", "#E60B0F19");
@@ -1052,6 +1438,10 @@ public class AntigravityWidgetProvider extends AppWidgetProvider {
                 json.put("border", "#FFD166");
                 json.put("title", "ANTIGRAVITY // AMBER");
                 json.put("title_color", "#FFD166");
+                json.put("text", getLiveSystemStats());
+                json.put("status", "READY");
+                json.put("status_color", "#FFD166");
+                json.put("click_action", "open");
             }
 
             File p = jsonFile.getParentFile();
@@ -1059,7 +1449,7 @@ public class AntigravityWidgetProvider extends AppWidgetProvider {
             FileOutputStream fos = new FileOutputStream(jsonFile);
             fos.write(json.toString(2).getBytes("UTF-8"));
             fos.close();
-            Toast.makeText(context, "🎨 Theme: " + newShape.toUpperCase(), Toast.LENGTH_SHORT).show();
+            Toast.makeText(context, "🎨 Theme: " + newShape.toUpperCase(Locale.US), Toast.LENGTH_SHORT).show();
         } catch (Exception ignored) {}
     }
 
@@ -1070,6 +1460,8 @@ public class AntigravityWidgetProvider extends AppWidgetProvider {
         if (f2.exists()) return f2;
         File f3 = new File("/sdcard/" + relPath);
         if (f3.exists()) return f3;
+        File f4 = new File("/data/data/com.termux/files/home/" + relPath);
+        if (f4.exists()) return f4;
         return f1;
     }
 
@@ -1115,7 +1507,8 @@ public class AntigravityWidgetProvider extends AppWidgetProvider {
             intent.putExtra(EXTRA_COMMAND, command);
         }
         intent.putExtra(EXTRA_BTN_ID, requestCode);
-        intent.setData(Uri.parse("agycli://widget/action/" + requestCode + "/" + action));
+        String dataUri = "agycli://widget/action/" + requestCode + "/" + action + "/" + Uri.encode(command != null ? command : "");
+        intent.setData(Uri.parse(dataUri));
         int flags = PendingIntent.FLAG_UPDATE_CURRENT;
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             flags |= PendingIntent.FLAG_IMMUTABLE;
@@ -1142,23 +1535,51 @@ public class AntigravityWidgetProvider extends AppWidgetProvider {
         int h = 480;
 
         String shape = json != null ? json.optString("shape", "chamfer") : "chamfer";
-        String bgColor1Str = json != null ? json.optString("bg", "#E60B0F19") : "#E60B0F19";
-        String bgColor2Str = json != null ? json.optString("bg2", bgColor1Str) : bgColor1Str;
-        String borderColorStr = json != null ? json.optString("border", "#00F0FF") : "#00F0FF";
-        float borderWidth = json != null ? (float) json.optDouble("border_width", 3.0) : 3.0f;
-        float radius = json != null ? (float) json.optDouble("radius", 24.0) : 24.0f;
+        String title = json != null ? json.optString("title", "ANTIGRAVITY // NODE") : "ANTIGRAVITY // NODE";
 
-        int bgColor1 = parseColor(bgColor1Str, Color.parseColor("#0B0F19"));
-        int bgColor2 = parseColor(bgColor2Str, bgColor1);
-        int borderColor = parseColor(borderColorStr, Color.parseColor("#00F0FF"));
+        boolean isPetMode = "nothing_pet".equalsIgnoreCase(shape) || "pet".equalsIgnoreCase(shape) ||
+                            title.toUpperCase(Locale.US).contains("PET") ||
+                            (json != null && json.has("btn1") && json.optJSONObject("btn1").optString("text", "").contains("Pet"));
 
-        Bitmap canvasBitmap = generateShapeBitmap(w, h, shape, bgColor1, bgColor2, borderColor, borderWidth, radius);
+        Bitmap canvasBitmap;
+        if (isPetMode) {
+            boolean isLight = json != null && json.optBoolean("light_theme", false);
+            canvasBitmap = generateNothingPetBitmap(w, h, sCurrentPetState, sPetFrame, isLight);
+        } else {
+            String bgColor1Str = json != null ? json.optString("bg", "#E60B0F19") : "#E60B0F19";
+            String bgColor2Str = json != null ? json.optString("bg2", bgColor1Str) : bgColor1Str;
+            String borderColorStr = json != null ? json.optString("border", "#00F0FF") : "#00F0FF";
+            float borderWidth = json != null ? (float) json.optDouble("border_width", 3.0) : 3.0f;
+            float radius = json != null ? (float) json.optDouble("radius", 24.0) : 24.0f;
 
-        File imageFile = findFile(context, ".antigravity/widgets/widget.png");
-        String customImagePath = json != null ? json.optString("canvas_image", "") : "";
-        if (!customImagePath.isEmpty()) {
-            File customF = new File(customImagePath);
-            if (customF.exists()) imageFile = customF;
+            int bgColor1 = parseColor(bgColor1Str, Color.parseColor("#0B0F19"));
+            int bgColor2 = parseColor(bgColor2Str, bgColor1);
+            int borderColor = parseColor(borderColorStr, Color.parseColor("#00F0FF"));
+
+            canvasBitmap = generateShapeBitmap(w, h, shape, bgColor1, bgColor2, borderColor, borderWidth, radius);
+        }
+
+        // Custom canvas image or state-specific image
+        File imageFile = null;
+        if (json != null) {
+            JSONObject states = json.optJSONObject("states");
+            if (states != null && states.has(sCurrentPetState)) {
+                String stImg = states.getJSONObject(sCurrentPetState).optString("image", "");
+                if (!stImg.isEmpty()) {
+                    File f = new File(stImg);
+                    if (f.exists()) imageFile = f;
+                }
+            }
+            if (imageFile == null) {
+                String customImagePath = json.optString("canvas_image", "");
+                if (!customImagePath.isEmpty()) {
+                    File customF = new File(customImagePath);
+                    if (customF.exists()) imageFile = customF;
+                }
+            }
+        }
+        if (imageFile == null && !isPetMode) {
+            imageFile = findFile(context, ".antigravity/widgets/widget.png");
         }
 
         if (imageFile != null && imageFile.exists()) {
@@ -1178,30 +1599,54 @@ public class AntigravityWidgetProvider extends AppWidgetProvider {
         boolean showOverlay = json == null || json.optBoolean("show_overlay", true);
         views.setViewVisibility(R.id.widget_overlay, showOverlay ? View.VISIBLE : View.GONE);
 
-        if (json != null) {
-            String title = json.optString("title", "ANTIGRAVITY // NODE");
-            views.setTextViewText(R.id.widget_title, title);
-            views.setTextColor(R.id.widget_title, parseColor(json.optString("title_color", "#00F0FF"), Color.parseColor("#00F0FF")));
+        // Header Title
+        views.setTextViewText(R.id.widget_title, title);
+        int titleColor = parseColor(json != null ? json.optString("title_color", isPetMode ? "#888888" : "#00F0FF") : "#00F0FF", Color.parseColor("#00F0FF"));
+        views.setTextColor(R.id.widget_title, titleColor);
 
-            String text = json.optString("text", getLiveSystemStats());
-            views.setTextViewText(R.id.widget_text, text);
-            views.setTextColor(R.id.widget_text, parseColor(json.optString("text_color", "#E2E8F0"), Color.parseColor("#E2E8F0")));
+        // Status Badge vs Flipper
+        String statusText = (isPetMode && sPetStatusText != null) ? sPetStatusText :
+                            (json != null ? json.optString("status", isPetMode ? "IDLE" : "") : (isPetMode ? "IDLE" : ""));
+        String statusColorStr = (isPetMode && sPetStatusColor != null) ? sPetStatusColor :
+                                (json != null ? json.optString("status_color", "#22C55E") : "#22C55E");
 
+        if (!statusText.isEmpty()) {
+            views.setTextViewText(R.id.widget_status, statusText);
+            views.setTextColor(R.id.widget_status, parseColor(statusColorStr, Color.parseColor("#22C55E")));
+            views.setViewVisibility(R.id.widget_status, View.VISIBLE);
+            views.setViewVisibility(R.id.widget_flipper, View.GONE);
+        } else {
+            views.setViewVisibility(R.id.widget_status, View.GONE);
+            views.setViewVisibility(R.id.widget_flipper, View.VISIBLE);
+        }
+
+        // Body Text
+        String bodyText = (isPetMode && sPetMoodText != null) ? sPetMoodText :
+                          (json != null ? json.optString("text", isPetMode ? "MOOD: CHILL" : getLiveSystemStats()) : (isPetMode ? "MOOD: CHILL" : getLiveSystemStats()));
+        views.setTextViewText(R.id.widget_text, bodyText);
+        int textColor = parseColor(json != null ? json.optString("text_color", "#E2E8F0") : "#E2E8F0", Color.parseColor("#E2E8F0"));
+        views.setTextColor(R.id.widget_text, textColor);
+
+        // Buttons
+        if (isPetMode) {
+            bindInteractiveButton(context, views, R.id.widget_btn_1, json != null ? json.optJSONObject("btn1") : null, "❤️ Pet", "pet", 1);
+            bindInteractiveButton(context, views, R.id.widget_btn_2, json != null ? json.optJSONObject("btn2") : null, "🐟 Fish", "fish", 2);
+            bindInteractiveButton(context, views, R.id.widget_btn_3, json != null ? json.optJSONObject("btn3") : null, "💤 Sleep", "sleep", 3);
+            bindInteractiveButton(context, views, R.id.widget_btn_4, json != null ? json.optJSONObject("btn4") : null, "📱 Open", "open", 4);
+        } else if (json != null) {
             bindInteractiveButton(context, views, R.id.widget_btn_1, json.optJSONObject("btn1"), "⚡ Ask AI", "agy", 1);
             bindInteractiveButton(context, views, R.id.widget_btn_2, json.optJSONObject("btn2"), "🔄 Refresh", ACTION_WIDGET_REFRESH, 2);
             bindInteractiveButton(context, views, R.id.widget_btn_3, json.optJSONObject("btn3"), "🎨 Theme", ACTION_WIDGET_CYCLE_THEME, 3);
             bindInteractiveButton(context, views, R.id.widget_btn_4, json.optJSONObject("btn4"), "📱 Open", "open", 4);
         } else {
-            views.setTextViewText(R.id.widget_title, "ANTIGRAVITY // NODE");
-            views.setTextViewText(R.id.widget_text, getLiveSystemStats());
-
             bindInteractiveButton(context, views, R.id.widget_btn_1, null, "⚡ Ask AI", "agy", 1);
             bindInteractiveButton(context, views, R.id.widget_btn_2, null, "🔄 Refresh", ACTION_WIDGET_REFRESH, 2);
             bindInteractiveButton(context, views, R.id.widget_btn_3, null, "🎨 Theme", ACTION_WIDGET_CYCLE_THEME, 3);
             bindInteractiveButton(context, views, R.id.widget_btn_4, null, "📱 Open", "open", 4);
         }
 
-        String clickAction = json != null ? json.optString("click_action", "open") : "open";
+        // Tap on Canvas / Widget Body
+        String clickAction = json != null ? json.optString("click_action", isPetMode ? "pet" : "open") : (isPetMode ? "pet" : "open");
         views.setOnClickPendingIntent(R.id.widget_root, makeBroadcastPendingIntent(context, ACTION_WIDGET_EXECUTE, clickAction, 100));
 
         manager.updateAppWidget(appWidgetId, views);
@@ -1226,8 +1671,10 @@ public class AntigravityWidgetProvider extends AppWidgetProvider {
         }
 
         PendingIntent pi;
-        if (ACTION_WIDGET_REFRESH.equals(action) || ACTION_WIDGET_CYCLE_THEME.equals(action)) {
-            pi = makeBroadcastPendingIntent(context, action, null, btnId);
+        if (ACTION_WIDGET_REFRESH.equals(action) || "refresh".equalsIgnoreCase(action)) {
+            pi = makeBroadcastPendingIntent(context, ACTION_WIDGET_REFRESH, null, btnId);
+        } else if (ACTION_WIDGET_CYCLE_THEME.equals(action) || "theme".equalsIgnoreCase(action)) {
+            pi = makeBroadcastPendingIntent(context, ACTION_WIDGET_CYCLE_THEME, null, btnId);
         } else {
             pi = makeBroadcastPendingIntent(context, ACTION_WIDGET_EXECUTE, action, btnId);
         }
@@ -1241,6 +1688,150 @@ public class AntigravityWidgetProvider extends AppWidgetProvider {
         } catch (Exception e) {
             return defaultColor;
         }
+    }
+
+    public static Bitmap generateNothingPetBitmap(int w, int h, String state, int frame, boolean isLight) {
+        Bitmap bitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888);
+        Canvas canvas = new Canvas(bitmap);
+
+        // 1. Background Card
+        int cardBg = isLight ? Color.parseColor("#F4F5F5") : Color.parseColor("#111312");
+        Paint bgPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        bgPaint.setColor(cardBg);
+        bgPaint.setStyle(Paint.Style.FILL);
+
+        float pad = 4f;
+        RectF cardRect = new RectF(pad, pad, w - pad, h - pad);
+        float cardRadius = 36f;
+        canvas.drawRoundRect(cardRect, cardRadius, cardRadius, bgPaint);
+
+        // Border
+        Paint borderPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        borderPaint.setColor(isLight ? Color.argb(25, 0, 0, 0) : Color.argb(35, 255, 255, 255));
+        borderPaint.setStyle(Paint.Style.STROKE);
+        borderPaint.setStrokeWidth(2f);
+        canvas.drawRoundRect(cardRect, cardRadius, cardRadius, borderPaint);
+
+        // 2. Nothing OS 28x28 LED Dot Matrix
+        int dotOff = isLight ? Color.parseColor("#DFE2E0") : Color.parseColor("#1C201E");
+        int dotWhite = isLight ? Color.parseColor("#000000") : Color.parseColor("#FFFFFF");
+        int dotRed = Color.parseColor("#D71921");
+        int dotCyan = Color.parseColor("#38BDF8");
+
+        Paint dotPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        dotPaint.setStyle(Paint.Style.FILL);
+
+        int gridSize = 28;
+        float dotSpacing = 11.5f;
+        float dotRadius = dotSpacing * 0.36f;
+
+        float matrixWidth = gridSize * dotSpacing;
+        float matrixHeight = gridSize * dotSpacing;
+        float startX = (w - matrixWidth) / 2f;
+        float startY = 48f; // Below top bar, leaving space for text and buttons
+
+        // Draw background inactive LED dots
+        dotPaint.setColor(dotOff);
+        for (int y = 0; y < gridSize; y++) {
+            for (int x = 0; x < gridSize; x++) {
+                float cx = startX + x * dotSpacing + dotSpacing / 2f;
+                float cy = startY + y * dotSpacing + dotSpacing / 2f;
+                canvas.drawCircle(cx, cy, dotRadius, dotPaint);
+            }
+        }
+
+        // 3. Select Cat Sprite
+        String[] catSprite;
+        if ("sleep".equals(state)) {
+            catSprite = (frame % 2 == 0) ? CAT_SLEEP_1 : CAT_SLEEP_2;
+        } else if (frame == 1 || frame == 2) {
+            catSprite = CAT_IDLE_2;
+        } else {
+            catSprite = CAT_IDLE_1;
+        }
+
+        // Subgrid start for cat (centered in 28x28 grid)
+        int catStartX = 5;
+        int catStartY = 7;
+
+        dotPaint.setColor(dotWhite);
+        for (int r = 0; r < catSprite.length; r++) {
+            String row = catSprite[r];
+            for (int c = 0; c < row.length(); c++) {
+                if (row.charAt(c) == '#') {
+                    int gx = catStartX + c;
+                    int gy = catStartY + r;
+                    if (gx >= 0 && gx < gridSize && gy >= 0 && gy < gridSize) {
+                        float cx = startX + gx * dotSpacing + dotSpacing / 2f;
+                        float cy = startY + gy * dotSpacing + dotSpacing / 2f;
+                        canvas.drawCircle(cx, cy, dotRadius * 1.08f, dotPaint);
+                    }
+                }
+            }
+        }
+
+        // 4. Draw Red Heart if state is pet
+        if ("pet".equals(state)) {
+            dotPaint.setColor(dotRed);
+            int hStartX = 6;
+            int hStartY = 1;
+            float heartScale = (frame == 1) ? 1.25f : 1.15f;
+            for (int r = 0; r < SPRITE_HEART.length; r++) {
+                String row = SPRITE_HEART[r];
+                for (int c = 0; c < row.length(); c++) {
+                    if (row.charAt(c) == '#') {
+                        int gx = hStartX + c;
+                        int gy = hStartY + r;
+                        if (gx >= 0 && gx < gridSize && gy >= 0 && gy < gridSize) {
+                            float cx = startX + gx * dotSpacing + dotSpacing / 2f;
+                            float cy = startY + gy * dotSpacing + dotSpacing / 2f;
+                            canvas.drawCircle(cx, cy, dotRadius * heartScale, dotPaint);
+                        }
+                    }
+                }
+            }
+        }
+
+        // 5. Draw Blue Fish if state is fish
+        if ("fish".equals(state)) {
+            dotPaint.setColor(dotCyan);
+            int fStartX = 6;
+            int fStartY = (frame == 1) ? 3 : 2;
+            for (int r = 0; r < SPRITE_FISH.length; r++) {
+                String row = SPRITE_FISH[r];
+                for (int c = 0; c < row.length(); c++) {
+                    if (row.charAt(c) == '#') {
+                        int gx = fStartX + c;
+                        int gy = fStartY + r;
+                        if (gx >= 0 && gx < gridSize && gy >= 0 && gy < gridSize) {
+                            float cx = startX + gx * dotSpacing + dotSpacing / 2f;
+                            float cy = startY + gy * dotSpacing + dotSpacing / 2f;
+                            canvas.drawCircle(cx, cy, dotRadius * 1.15f, dotPaint);
+                        }
+                    }
+                }
+            }
+        }
+
+        // 6. Draw Floating Z's if state is sleep
+        if ("sleep".equals(state)) {
+            dotPaint.setColor(dotRed);
+            int[][] zDots = {
+                {20, 4}, {21, 3}, {22, 3}, {21, 4}, {20, 5}, {21, 5}, {22, 5},
+                {24, 2}, {25, 2}, {24, 3}, {25, 3}
+            };
+            for (int[] pt : zDots) {
+                int gx = pt[0];
+                int gy = pt[1];
+                if (gx < gridSize && gy >= 0) {
+                    float cx = startX + gx * dotSpacing + dotSpacing / 2f;
+                    float cy = startY + gy * dotSpacing + dotSpacing / 2f;
+                    canvas.drawCircle(cx, cy, dotRadius * 1.1f, dotPaint);
+                }
+            }
+        }
+
+        return bitmap;
     }
 
     public static Bitmap generateShapeBitmap(int w, int h, String shape, int bgColor1, int bgColor2, int borderColor, float borderWidth, float radius) {

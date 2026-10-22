@@ -40,6 +40,13 @@ def load_config():
                 return json.load(f)
         except Exception:
             pass
+    sd_p = "/sdcard/.antigravity/widgets/widget.json"
+    if os.path.exists(sd_p):
+        try:
+            with open(sd_p, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            pass
     return {
         "title": "Antigravity Node",
         "title_color": "#00F0FF",
@@ -61,6 +68,13 @@ def save_config(cfg):
     p = get_json_path()
     with open(p, "w", encoding="utf-8") as f:
         json.dump(cfg, f, indent=2)
+    try:
+        sd_dir = "/sdcard/.antigravity/widgets"
+        os.makedirs(sd_dir, exist_ok=True)
+        with open(os.path.join(sd_dir, "widget.json"), "w", encoding="utf-8") as f:
+            json.dump(cfg, f, indent=2)
+    except Exception:
+        pass
 
 def trigger_update():
     # Broadcast to AntigravityWidgetProvider
@@ -143,6 +157,19 @@ def trigger_cycle_theme():
     try:
         subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         print(f"{GREEN}[✓] Morphed widget theme on home screen!{RESET}")
+    except Exception as e:
+        print(f"{YELLOW}[!] Notice: ({e}){RESET}")
+
+def trigger_action(action_cmd):
+    cmd = [
+        "am", "broadcast", "--user", "0",
+        "-a", "com.agycli.action.WIDGET_EXECUTE",
+        "--es", "com.agycli.extra.COMMAND", action_cmd,
+        "-n", "com.agycli/com.termux.app.widget.AntigravityWidgetProvider"
+    ]
+    try:
+        subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        print(f"{GREEN}[✓] Triggered interactive widget action: {action_cmd}!{RESET}")
     except Exception as e:
         print(f"{YELLOW}[!] Notice: ({e}){RESET}")
 
@@ -299,8 +326,29 @@ def cmd_template(args):
             "click_action": "open",
             "btn1": {"text": "New Idea", "action": "agy 'give me an innovative idea'", "color": "#00F0FF"}
         }
+    elif name in ("pet", "nothing", "cat"):
+        cfg = {
+            "title": "NOTHING OS • PET",
+            "title_color": "#888888",
+            "status": "IDLE",
+            "status_color": "#22C55E",
+            "text": "MOOD: CHILL",
+            "text_color": "#E2E8F0",
+            "shape": "nothing_pet",
+            "bg": "#111312",
+            "bg2": "#111312",
+            "border": "#33FFFFFF",
+            "border_width": 1.5,
+            "radius": 36,
+            "show_overlay": True,
+            "click_action": "pet",
+            "btn1": {"text": "❤️ Pet", "action": "pet", "color": "#FF5370"},
+            "btn2": {"text": "🐟 Fish", "action": "fish", "color": "#38BDF8"},
+            "btn3": {"text": "💤 Sleep", "action": "sleep", "color": "#C084FC"},
+            "btn4": {"text": "📱 Open", "action": "open", "color": "#E2E8F0"}
+        }
     else:
-        print(f"{YELLOW}[!] Unknown template: {name}. Available: cosmic, matrix, minimal, gauge, checklist, quote{RESET}")
+        print(f"{YELLOW}[!] Unknown template: {name}. Available: cosmic, matrix, minimal, gauge, checklist, quote, pet, nothing{RESET}")
         return
 
     # Remove any old custom bitmap so template colors shine
@@ -356,7 +404,7 @@ Examples:
     p_set.add_argument("--status-color", help="Hex color for status badge")
     p_set.add_argument("--text", help="Multiline body text or stats")
     p_set.add_argument("--text-color", help="Hex color for body text")
-    p_set.add_argument("--shape", choices=["chamfer", "rounded_rect", "pill", "circle", "hex"], help="Widget geometric shape")
+    p_set.add_argument("--shape", choices=["chamfer", "rounded_rect", "pill", "circle", "hex", "nothing_pet", "pet"], help="Widget geometric shape")
     p_set.add_argument("--bg", help="Background hex color (e.g. #0B0F19)")
     p_set.add_argument("--bg2", help="Secondary background color for linear gradient")
     p_set.add_argument("--border", help="Border hex color")
@@ -387,7 +435,18 @@ Examples:
 
     # template
     p_tpl = sub.add_parser("template", help="Apply a pre-built gorgeous widget template")
-    p_tpl.add_argument("name", choices=["cosmic", "cyberpunk", "minimal", "gauge", "matrix", "checklist", "quote"], help="Template name")
+    p_tpl.add_argument("name", choices=["cosmic", "cyberpunk", "minimal", "gauge", "matrix", "checklist", "quote", "pet", "nothing", "cat"], help="Template name")
+
+    # pet interactions
+    sub.add_parser("pet", help="Trigger pet affection interaction live on widget")
+    sub.add_parser("fish", help="Trigger feeding fish interaction live on widget")
+    sub.add_parser("sleep", help="Toggle sleep mode live on widget")
+
+    p_act = sub.add_parser("action", help="Send arbitrary interactive action to widget")
+    p_act.add_argument("cmd", help="Action string (e.g. pet, fish, sleep, state:happy, refresh)")
+
+    p_state = sub.add_parser("state", help="Set widget custom state")
+    p_state.add_argument("name", help="State name")
 
     # update
     sub.add_parser("update", help="Send immediate update signal to Android home screen")
@@ -415,6 +474,16 @@ Examples:
         cmd_clear_image(args)
     elif args.command == "template":
         cmd_template(args)
+    elif args.command == "pet":
+        trigger_action("pet")
+    elif args.command == "fish":
+        trigger_action("fish")
+    elif args.command == "sleep":
+        trigger_action("sleep")
+    elif args.command == "action":
+        trigger_action(args.cmd)
+    elif args.command == "state":
+        trigger_action(f"state:{args.name}")
     elif args.command == "update":
         trigger_update()
     elif args.command == "refresh":
