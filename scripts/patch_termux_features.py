@@ -1267,27 +1267,29 @@ public class AntigravityWidgetProvider extends AppWidgetProvider {
                 fis.close();
                 JSONObject json = new JSONObject(new String(data, "UTF-8"));
                 JSONObject states = json.optJSONObject("states");
-                if (states != null && states.has(stateName)) {
-                    JSONObject st = states.getJSONObject(stateName);
-                    if (st.has("text")) sPetMoodText = st.getString("text");
-                    if (st.has("status")) sPetStatusText = st.getString("status");
-                    if (st.has("status_color")) sPetStatusColor = st.getString("status_color");
-                    sCurrentPetState = stateName;
-                    refreshAllWidgets(context);
+                if (states != null) {
+                    JSONObject st = states.optJSONObject(stateName);
+                    if (st != null) {
+                        if (st.has("text")) sPetMoodText = st.optString("text", null);
+                        if (st.has("status")) sPetStatusText = st.optString("status", null);
+                        if (st.has("status_color")) sPetStatusColor = st.optString("status_color", null);
+                        sCurrentPetState = stateName;
+                        refreshAllWidgets(context);
 
-                    int autoRevert = st.optInt("auto_revert", 0);
-                    if (autoRevert > 0) {
-                        new Thread(() -> {
-                            try {
-                                Thread.sleep(autoRevert);
-                                sCurrentPetState = "idle";
-                                sPetMoodText = null;
-                                sPetStatusText = null;
-                                postWidgetRefresh(context);
-                            } catch (Exception ignored) {}
-                        }).start();
+                        int autoRevert = st.optInt("auto_revert", 0);
+                        if (autoRevert > 0) {
+                            new Thread(() -> {
+                                try {
+                                    Thread.sleep(autoRevert);
+                                    sCurrentPetState = "idle";
+                                    sPetMoodText = null;
+                                    sPetStatusText = null;
+                                    postWidgetRefresh(context);
+                                } catch (Exception ignored) {}
+                            }).start();
+                        }
+                        return;
                     }
-                    return;
                 }
             }
         } catch (Exception ignored) {}
@@ -1563,11 +1565,14 @@ public class AntigravityWidgetProvider extends AppWidgetProvider {
         File imageFile = null;
         if (json != null) {
             JSONObject states = json.optJSONObject("states");
-            if (states != null && states.has(sCurrentPetState)) {
-                String stImg = states.getJSONObject(sCurrentPetState).optString("image", "");
-                if (!stImg.isEmpty()) {
-                    File f = new File(stImg);
-                    if (f.exists()) imageFile = f;
+            if (states != null) {
+                JSONObject stObj = states.optJSONObject(sCurrentPetState);
+                if (stObj != null) {
+                    String stImg = stObj.optString("image", "");
+                    if (!stImg.isEmpty()) {
+                        File f = new File(stImg);
+                        if (f.exists()) imageFile = f;
+                    }
                 }
             }
             if (imageFile == null) {
