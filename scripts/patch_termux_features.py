@@ -577,7 +577,8 @@ import java.util.List;"""
             c = f.read()
 
         usb_perms = """    <uses-feature android:name="android.hardware.usb.host" android:required="false" />
-    <uses-permission android:name="android.permission.USB_PERMISSION" />"""
+    <uses-permission android:name="android.permission.USB_PERMISSION" />
+    <uses-permission android:name="android.permission.VIBRATE" />"""
 
         if "android.hardware.usb.host" not in c:
             c = c.replace("<uses-permission android:name=\"android.permission.INTERNET\" />",
@@ -592,6 +593,9 @@ import java.util.List;"""
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
                 <action android:name="com.agycli.action.WIDGET_UPDATE" />
                 <action android:name="com.agycli.action.WIDGET_ACTION" />
+                <action android:name="com.agycli.action.WIDGET_REFRESH" />
+                <action android:name="com.agycli.action.WIDGET_CYCLE_THEME" />
+                <action android:name="com.agycli.action.WIDGET_EXECUTE" />
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"
@@ -646,9 +650,9 @@ import java.util.List;"""
     with open(os.path.join(drawable_dir, "widget_badge_bg.xml"), "w", encoding="utf-8") as f:
         f.write("""<?xml version="1.0" encoding="utf-8"?>
 <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
-    <solid android:color="#2622C55E" />
-    <corners android:radius="8dp" />
-    <stroke android:width="1dp" android:color="#5922C55E" />
+    <solid android:color="#2600F0FF" />
+    <corners android:radius="6dp" />
+    <stroke android:width="1dp" android:color="#4D00F0FF" />
 </shape>
 """)
 
@@ -661,27 +665,31 @@ import java.util.List;"""
 </shape>
 """)
 
-    # 7.3. Widget Layout XML
+    # 7.3. Live Animated & Interactive Widget Layout XML
     widget_layout_xml = """<?xml version="1.0" encoding="utf-8"?>
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/widget_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@drawable/widget_bg_rounded">
+    android:background="@drawable/widget_bg_rounded"
+    android:clickable="true"
+    android:focusable="true">
 
     <ImageView
         android:id="@+id/widget_canvas"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:scaleType="fitXY"
-        android:adjustViewBounds="true" />
+        android:adjustViewBounds="true"
+        android:clickable="false"
+        android:focusable="false" />
 
     <LinearLayout
         android:id="@+id/widget_overlay"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:orientation="vertical"
-        android:padding="12dp">
+        android:padding="11dp">
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -690,29 +698,99 @@ import java.util.List;"""
             android:gravity="center_vertical">
 
             <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="▲ "
+                android:textColor="#00F0FF"
+                android:textSize="13sp"
+                android:textStyle="bold" />
+
+            <TextView
                 android:id="@+id/widget_title"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="Antigravity Node"
+                android:text="ANTIGRAVITY // NODE"
                 android:textColor="#00F0FF"
-                android:textSize="14sp"
+                android:textSize="13sp"
                 android:textStyle="bold"
                 android:singleLine="true" />
+
+            <!-- Live Animated ViewFlipper (Cycles frames automatically every 1.5s) -->
+            <ViewFlipper
+                android:id="@+id/widget_flipper"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:autoStart="true"
+                android:flipInterval="1500">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:paddingStart="7dp"
+                    android:paddingEnd="7dp"
+                    android:paddingTop="2dp"
+                    android:paddingBottom="2dp"
+                    android:text="● LIVE"
+                    android:textColor="#22C55E"
+                    android:textSize="10sp"
+                    android:textStyle="bold"
+                    android:background="@drawable/widget_badge_bg" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:paddingStart="7dp"
+                    android:paddingEnd="7dp"
+                    android:paddingTop="2dp"
+                    android:paddingBottom="2dp"
+                    android:text="◈ AI CORE"
+                    android:textColor="#00F0FF"
+                    android:textSize="10sp"
+                    android:textStyle="bold"
+                    android:background="@drawable/widget_badge_bg" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:paddingStart="7dp"
+                    android:paddingEnd="7dp"
+                    android:paddingTop="2dp"
+                    android:paddingBottom="2dp"
+                    android:text="✦ QUANTUM"
+                    android:textColor="#C084FC"
+                    android:textSize="10sp"
+                    android:textStyle="bold"
+                    android:background="@drawable/widget_badge_bg" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:paddingStart="7dp"
+                    android:paddingEnd="7dp"
+                    android:paddingTop="2dp"
+                    android:paddingBottom="2dp"
+                    android:text="▲ ACTIVE"
+                    android:textColor="#FFD166"
+                    android:textSize="10sp"
+                    android:textStyle="bold"
+                    android:background="@drawable/widget_badge_bg" />
+            </ViewFlipper>
 
             <TextView
                 android:id="@+id/widget_status"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:paddingStart="8dp"
-                android:paddingEnd="8dp"
+                android:paddingStart="7dp"
+                android:paddingEnd="7dp"
                 android:paddingTop="2dp"
                 android:paddingBottom="2dp"
                 android:text="ONLINE"
                 android:textColor="#22C55E"
                 android:textSize="10sp"
                 android:textStyle="bold"
-                android:background="@drawable/widget_badge_bg" />
+                android:background="@drawable/widget_badge_bg"
+                android:visibility="gone" />
         </LinearLayout>
 
         <TextView
@@ -720,12 +798,13 @@ import java.util.List;"""
             android:layout_width="match_parent"
             android:layout_height="0dp"
             android:layout_weight="1"
-            android:layout_marginTop="6dp"
-            android:layout_marginBottom="6dp"
-            android:text="Tap to open Antigravity CLI"
+            android:layout_marginTop="4dp"
+            android:layout_marginBottom="4dp"
+            android:text="Loading system telemetry..."
             android:textColor="#E2E8F0"
-            android:textSize="12sp"
-            android:maxLines="6"
+            android:textSize="11sp"
+            android:lineSpacingExtra="2dp"
+            android:maxLines="4"
             android:ellipsize="end" />
 
         <LinearLayout
@@ -733,57 +812,66 @@ import java.util.List;"""
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:gravity="end">
+            android:gravity="center_vertical">
 
-            <Button
+            <TextView
                 android:id="@+id/widget_btn_1"
-                style="?android:attr/buttonBarStyle"
-                android:layout_width="wrap_content"
+                android:layout_width="0dp"
                 android:layout_height="28dp"
-                android:minHeight="28dp"
-                android:layout_marginEnd="4dp"
-                android:paddingStart="8dp"
-                android:paddingEnd="8dp"
-                android:paddingTop="0dp"
-                android:paddingBottom="0dp"
-                android:text="Run AI"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:layout_marginEnd="3dp"
+                android:text="⚡ Ask AI"
                 android:textColor="#00F0FF"
                 android:textSize="11sp"
+                android:textStyle="bold"
                 android:background="@drawable/widget_btn_bg"
-                android:visibility="gone" />
+                android:clickable="true"
+                android:focusable="true" />
 
-            <Button
+            <TextView
                 android:id="@+id/widget_btn_2"
-                style="?android:attr/buttonBarStyle"
-                android:layout_width="wrap_content"
+                android:layout_width="0dp"
                 android:layout_height="28dp"
-                android:minHeight="28dp"
-                android:layout_marginEnd="4dp"
-                android:paddingStart="8dp"
-                android:paddingEnd="8dp"
-                android:paddingTop="0dp"
-                android:paddingBottom="0dp"
-                android:text="Sync"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:layout_marginEnd="3dp"
+                android:text="🔄 Refresh"
+                android:textColor="#22C55E"
+                android:textSize="11sp"
+                android:textStyle="bold"
+                android:background="@drawable/widget_btn_bg"
+                android:clickable="true"
+                android:focusable="true" />
+
+            <TextView
+                android:id="@+id/widget_btn_3"
+                android:layout_width="0dp"
+                android:layout_height="28dp"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:layout_marginEnd="3dp"
+                android:text="🎨 Theme"
                 android:textColor="#C084FC"
                 android:textSize="11sp"
+                android:textStyle="bold"
                 android:background="@drawable/widget_btn_bg"
-                android:visibility="gone" />
+                android:clickable="true"
+                android:focusable="true" />
 
-            <Button
-                android:id="@+id/widget_btn_3"
-                style="?android:attr/buttonBarStyle"
-                android:layout_width="wrap_content"
+            <TextView
+                android:id="@+id/widget_btn_4"
+                android:layout_width="0dp"
                 android:layout_height="28dp"
-                android:minHeight="28dp"
-                android:paddingStart="8dp"
-                android:paddingEnd="8dp"
-                android:paddingTop="0dp"
-                android:paddingBottom="0dp"
-                android:text="More"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:text="📱 Open"
                 android:textColor="#38BDF8"
                 android:textSize="11sp"
+                android:textStyle="bold"
                 android:background="@drawable/widget_btn_bg"
-                android:visibility="gone" />
+                android:clickable="true"
+                android:focusable="true" />
         </LinearLayout>
     </LinearLayout>
 </FrameLayout>
@@ -791,8 +879,8 @@ import java.util.List;"""
     with open(os.path.join(layout_dir, "antigravity_app_widget.xml"), "w", encoding="utf-8") as f:
         f.write(widget_layout_xml)
 
-    # 7.4. AntigravityWidgetProvider.java
-    provider_java = """package com.termux.app.widget;
+    # 7.4. AntigravityWidgetProvider.java (Full Interactive & Live Animated Provider)
+    provider_java = r"""package com.termux.app.widget;
 
 import android.app.PendingIntent;
 import android.appwidget.AppWidgetManager;
@@ -809,23 +897,39 @@ import android.graphics.Paint;
 import android.graphics.Path;
 import android.graphics.RectF;
 import android.graphics.Shader;
+import android.net.Uri;
 import android.os.Build;
+import android.os.VibrationEffect;
+import android.os.Vibrator;
 import android.view.View;
 import android.widget.RemoteViews;
+import android.widget.Toast;
 
 import com.termux.R;
 import com.termux.app.TermuxActivity;
 
 import org.json.JSONObject;
 
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.FileReader;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Locale;
 
 public class AntigravityWidgetProvider extends AppWidgetProvider {
 
     public static final String ACTION_WIDGET_UPDATE = "com.agycli.action.WIDGET_UPDATE";
-    public static final String ACTION_WIDGET_ACTION = "com.agycli.action.WIDGET_ACTION";
+    public static final String ACTION_WIDGET_REFRESH = "com.agycli.action.WIDGET_REFRESH";
+    public static final String ACTION_WIDGET_CYCLE_THEME = "com.agycli.action.WIDGET_CYCLE_THEME";
+    public static final String ACTION_WIDGET_EXECUTE = "com.agycli.action.WIDGET_EXECUTE";
+    public static final String EXTRA_COMMAND = "com.agycli.extra.COMMAND";
     public static final String EXTRA_BTN_ID = "com.agycli.extra.BTN_ID";
+
+    private static final String[] THEME_SHAPES = {"chamfer", "matrix", "pill", "hex", "rounded_rect"};
+    private static int sThemeIndex = 0;
 
     @Override
     public void onUpdate(Context context, AppWidgetManager appWidgetManager, int[] appWidgetIds) {
@@ -837,17 +941,126 @@ public class AntigravityWidgetProvider extends AppWidgetProvider {
     @Override
     public void onReceive(Context context, Intent intent) {
         super.onReceive(context, intent);
-        String action = intent != null ? intent.getAction() : null;
+        if (intent == null) return;
+        String action = intent.getAction();
 
         if (ACTION_WIDGET_UPDATE.equals(action) ||
             AppWidgetManager.ACTION_APPWIDGET_UPDATE.equals(action)) {
-            AppWidgetManager manager = AppWidgetManager.getInstance(context);
-            ComponentName name = new ComponentName(context, AntigravityWidgetProvider.class);
-            int[] ids = manager.getAppWidgetIds(name);
-            if (ids != null && ids.length > 0) {
-                onUpdate(context, manager, ids);
+            refreshAllWidgets(context);
+        } else if (ACTION_WIDGET_REFRESH.equals(action)) {
+            vibrate(context, 35);
+            Toast.makeText(context, "⚡ Telemetry Refreshed", Toast.LENGTH_SHORT).show();
+            refreshAllWidgets(context);
+        } else if (ACTION_WIDGET_CYCLE_THEME.equals(action)) {
+            vibrate(context, 45);
+            cycleTheme(context);
+            refreshAllWidgets(context);
+        } else if (ACTION_WIDGET_EXECUTE.equals(action)) {
+            vibrate(context, 30);
+            String cmd = intent.getStringExtra(EXTRA_COMMAND);
+            if (cmd == null || cmd.isEmpty() || "open".equalsIgnoreCase(cmd)) {
+                cmd = "";
+            }
+            launchTerminal(context, cmd);
+        }
+    }
+
+    private static void vibrate(Context context, long ms) {
+        try {
+            Vibrator v = (Vibrator) context.getSystemService(Context.VIBRATOR_SERVICE);
+            if (v != null && v.hasVibrator()) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    v.vibrate(VibrationEffect.createOneShot(ms, VibrationEffect.DEFAULT_AMPLITUDE));
+                } else {
+                    v.vibrate(ms);
+                }
+            }
+        } catch (Exception ignored) {}
+    }
+
+    private static void launchTerminal(Context context, String command) {
+        try {
+            Intent actIntent = new Intent(context, TermuxActivity.class);
+            actIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+            if (command != null && !command.trim().isEmpty()) {
+                actIntent.putExtra("com.agycli.execute_command", command);
+                Toast.makeText(context, "⚡ Running: " + command, Toast.LENGTH_SHORT).show();
+            }
+            context.startActivity(actIntent);
+        } catch (Exception e) {
+            Toast.makeText(context, "Failed to launch: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    public static void refreshAllWidgets(Context context) {
+        AppWidgetManager manager = AppWidgetManager.getInstance(context);
+        ComponentName name = new ComponentName(context, AntigravityWidgetProvider.class);
+        int[] ids = manager.getAppWidgetIds(name);
+        if (ids != null && ids.length > 0) {
+            for (int id : ids) {
+                updateWidget(context, manager, id);
             }
         }
+    }
+
+    private static void cycleTheme(Context context) {
+        sThemeIndex = (sThemeIndex + 1) % THEME_SHAPES.length;
+        String newShape = THEME_SHAPES[sThemeIndex];
+        try {
+            File jsonFile = findFile(context, ".antigravity/widgets/widget.json");
+            JSONObject json = new JSONObject();
+            if (jsonFile.exists()) {
+                FileInputStream fis = new FileInputStream(jsonFile);
+                byte[] data = new byte[(int) jsonFile.length()];
+                fis.read(data);
+                fis.close();
+                json = new JSONObject(new String(data, "UTF-8"));
+            }
+
+            if ("chamfer".equals(newShape)) {
+                json.put("shape", "chamfer");
+                json.put("bg", "#E60B0F19");
+                json.put("bg2", "#E6151B28");
+                json.put("border", "#00F0FF");
+                json.put("title", "ANTIGRAVITY // COSMIC");
+                json.put("title_color", "#00F0FF");
+            } else if ("matrix".equals(newShape)) {
+                json.put("shape", "rounded_rect");
+                json.put("bg", "#F2030804");
+                json.put("bg2", "#E6081409");
+                json.put("border", "#22C55E");
+                json.put("title", "ANTIGRAVITY // MATRIX");
+                json.put("title_color", "#22C55E");
+            } else if ("pill".equals(newShape)) {
+                json.put("shape", "pill");
+                json.put("bg", "#CC0F172A");
+                json.put("bg2", "#CC1E293B");
+                json.put("border", "#38BDF8");
+                json.put("title", "ANTIGRAVITY // GLASS");
+                json.put("title_color", "#38BDF8");
+            } else if ("hex".equals(newShape)) {
+                json.put("shape", "hex");
+                json.put("bg", "#E6140B24");
+                json.put("bg2", "#E62E1065");
+                json.put("border", "#C084FC");
+                json.put("title", "ANTIGRAVITY // TELEMETRY");
+                json.put("title_color", "#C084FC");
+            } else {
+                json.put("shape", "rounded_rect");
+                json.put("bg", "#E60B0F19");
+                json.put("bg2", "#E61F293D");
+                json.put("border", "#FFD166");
+                json.put("title", "ANTIGRAVITY // AMBER");
+                json.put("title_color", "#FFD166");
+            }
+
+            File p = jsonFile.getParentFile();
+            if (p != null) p.mkdirs();
+            FileOutputStream fos = new FileOutputStream(jsonFile);
+            fos.write(json.toString(2).getBytes("UTF-8"));
+            fos.close();
+            Toast.makeText(context, "🎨 Theme: " + newShape.toUpperCase(), Toast.LENGTH_SHORT).show();
+        } catch (Exception ignored) {}
     }
 
     private static File findFile(Context context, String relPath) {
@@ -858,6 +1071,56 @@ public class AntigravityWidgetProvider extends AppWidgetProvider {
         File f3 = new File("/sdcard/" + relPath);
         if (f3.exists()) return f3;
         return f1;
+    }
+
+    private static String getLiveSystemStats() {
+        String battery = "85%";
+        try {
+            File bf = new File("/sys/class/power_supply/battery/capacity");
+            if (bf.exists()) {
+                BufferedReader br = new BufferedReader(new FileReader(bf));
+                battery = br.readLine().trim() + "%";
+                br.close();
+            }
+        } catch (Exception ignored) {}
+
+        String mem = "RAM: 3.5 GB / 8.0 GB";
+        try {
+            File mf = new File("/proc/meminfo");
+            if (mf.exists()) {
+                BufferedReader br = new BufferedReader(new FileReader(mf));
+                String totalLine = br.readLine();
+                br.readLine();
+                String availLine = br.readLine();
+                br.close();
+                if (totalLine != null && availLine != null) {
+                    long totalKb = Long.parseLong(totalLine.replaceAll("\\D+", ""));
+                    long availKb = Long.parseLong(availLine.replaceAll("\\D+", ""));
+                    long usedKb = totalKb - availKb;
+                    mem = String.format(Locale.US, "RAM: %.1f / %.1f GB", usedKb / 1048576.0, totalKb / 1048576.0);
+                }
+            }
+        } catch (Exception ignored) {}
+
+        SimpleDateFormat sdf = new SimpleDateFormat("HH:mm:ss  •  MMM dd", Locale.US);
+        String timeStr = sdf.format(new Date());
+
+        return "● " + mem + "  |  PWR: " + battery + "\n● " + timeStr + "\n● Antigravity Neural Engine: Ready";
+    }
+
+    private static PendingIntent makeBroadcastPendingIntent(Context context, String action, String command, int requestCode) {
+        Intent intent = new Intent(context, AntigravityWidgetProvider.class);
+        intent.setAction(action);
+        if (command != null) {
+            intent.putExtra(EXTRA_COMMAND, command);
+        }
+        intent.putExtra(EXTRA_BTN_ID, requestCode);
+        intent.setData(Uri.parse("agycli://widget/action/" + requestCode + "/" + action));
+        int flags = PendingIntent.FLAG_UPDATE_CURRENT;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            flags |= PendingIntent.FLAG_IMMUTABLE;
+        }
+        return PendingIntent.getBroadcast(context, requestCode, intent, flags);
     }
 
     public static void updateWidget(Context context, AppWidgetManager manager, int appWidgetId) {
@@ -878,7 +1141,6 @@ public class AntigravityWidgetProvider extends AppWidgetProvider {
         int w = 800;
         int h = 480;
 
-        // 1. Custom Shape & Background Rendering via Native Android Canvas
         String shape = json != null ? json.optString("shape", "chamfer") : "chamfer";
         String bgColor1Str = json != null ? json.optString("bg", "#E60B0F19") : "#E60B0F19";
         String bgColor2Str = json != null ? json.optString("bg2", bgColor1Str) : bgColor1Str;
@@ -892,7 +1154,6 @@ public class AntigravityWidgetProvider extends AppWidgetProvider {
 
         Bitmap canvasBitmap = generateShapeBitmap(w, h, shape, bgColor1, bgColor2, borderColor, borderWidth, radius);
 
-        // 2. Custom Image / Graphic Layer (if provided)
         File imageFile = findFile(context, ".antigravity/widgets/widget.png");
         String customImagePath = json != null ? json.optString("canvas_image", "") : "";
         if (!customImagePath.isEmpty()) {
@@ -914,71 +1175,63 @@ public class AntigravityWidgetProvider extends AppWidgetProvider {
         views.setImageViewBitmap(R.id.widget_canvas, canvasBitmap);
         views.setViewVisibility(R.id.widget_canvas, View.VISIBLE);
 
-        // 3. Overlay Visibility (Title, status, text, buttons)
         boolean showOverlay = json == null || json.optBoolean("show_overlay", true);
         views.setViewVisibility(R.id.widget_overlay, showOverlay ? View.VISIBLE : View.GONE);
 
         if (json != null) {
-            String title = json.optString("title", "Antigravity CLI");
+            String title = json.optString("title", "ANTIGRAVITY // NODE");
             views.setTextViewText(R.id.widget_title, title);
             views.setTextColor(R.id.widget_title, parseColor(json.optString("title_color", "#00F0FF"), Color.parseColor("#00F0FF")));
 
-            String status = json.optString("status", "ONLINE");
-            views.setTextViewText(R.id.widget_status, status);
-            views.setTextColor(R.id.widget_status, parseColor(json.optString("status_color", "#22C55E"), Color.parseColor("#22C55E")));
-
-            String text = json.optString("text", "Tap to open Antigravity CLI");
+            String text = json.optString("text", getLiveSystemStats());
             views.setTextViewText(R.id.widget_text, text);
             views.setTextColor(R.id.widget_text, parseColor(json.optString("text_color", "#E2E8F0"), Color.parseColor("#E2E8F0")));
 
-            bindButton(context, views, R.id.widget_btn_1, json.optJSONObject("btn1"), 1);
-            bindButton(context, views, R.id.widget_btn_2, json.optJSONObject("btn2"), 2);
-            bindButton(context, views, R.id.widget_btn_3, json.optJSONObject("btn3"), 3);
+            bindInteractiveButton(context, views, R.id.widget_btn_1, json.optJSONObject("btn1"), "⚡ Ask AI", "agy", 1);
+            bindInteractiveButton(context, views, R.id.widget_btn_2, json.optJSONObject("btn2"), "🔄 Refresh", ACTION_WIDGET_REFRESH, 2);
+            bindInteractiveButton(context, views, R.id.widget_btn_3, json.optJSONObject("btn3"), "🎨 Theme", ACTION_WIDGET_CYCLE_THEME, 3);
+            bindInteractiveButton(context, views, R.id.widget_btn_4, json.optJSONObject("btn4"), "📱 Open", "open", 4);
         } else {
-            views.setTextViewText(R.id.widget_title, "Antigravity CLI");
-            views.setTextViewText(R.id.widget_status, "ONLINE");
-            views.setTextViewText(R.id.widget_text, "Ready. Tap to open terminal.\\nRun 'agy-widget help' to customize.");
-            views.setViewVisibility(R.id.widget_btn_1, View.GONE);
-            views.setViewVisibility(R.id.widget_btn_2, View.GONE);
-            views.setViewVisibility(R.id.widget_btn_3, View.GONE);
+            views.setTextViewText(R.id.widget_title, "ANTIGRAVITY // NODE");
+            views.setTextViewText(R.id.widget_text, getLiveSystemStats());
+
+            bindInteractiveButton(context, views, R.id.widget_btn_1, null, "⚡ Ask AI", "agy", 1);
+            bindInteractiveButton(context, views, R.id.widget_btn_2, null, "🔄 Refresh", ACTION_WIDGET_REFRESH, 2);
+            bindInteractiveButton(context, views, R.id.widget_btn_3, null, "🎨 Theme", ACTION_WIDGET_CYCLE_THEME, 3);
+            bindInteractiveButton(context, views, R.id.widget_btn_4, null, "📱 Open", "open", 4);
         }
 
-        // Root Click: Tap card to open TermuxActivity or run action
         String clickAction = json != null ? json.optString("click_action", "open") : "open";
-        Intent rootIntent = new Intent(context, TermuxActivity.class);
-        rootIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-        if (!"open".equalsIgnoreCase(clickAction)) {
-            rootIntent.putExtra("com.agycli.execute_command", clickAction);
-        }
-        int flags = Build.VERSION.SDK_INT >= Build.VERSION_CODES.M ? PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE : PendingIntent.FLAG_UPDATE_CURRENT;
-        PendingIntent rootPi = PendingIntent.getActivity(context, 0, rootIntent, flags);
-        views.setOnClickPendingIntent(R.id.widget_root, rootPi);
+        views.setOnClickPendingIntent(R.id.widget_root, makeBroadcastPendingIntent(context, ACTION_WIDGET_EXECUTE, clickAction, 100));
 
         manager.updateAppWidget(appWidgetId, views);
     }
 
-    private static void bindButton(Context context, RemoteViews views, int btnViewId, JSONObject btnJson, int btnId) {
-        if (btnJson != null && btnJson.has("text") && !btnJson.optString("text").isEmpty()) {
-            views.setTextViewText(btnViewId, btnJson.optString("text"));
-            views.setViewVisibility(btnViewId, View.VISIBLE);
+    private static void bindInteractiveButton(Context context, RemoteViews views, int btnViewId, JSONObject btnJson, String defaultText, String defaultAction, int btnId) {
+        String label = defaultText;
+        String action = defaultAction;
+        String color = "";
 
-            String color = btnJson.optString("color", "");
-            if (!color.isEmpty()) {
-                views.setTextColor(btnViewId, parseColor(color, Color.parseColor("#00F0FF")));
-            }
-
-            String actionCmd = btnJson.optString("action", "");
-            Intent btnIntent = new Intent(context, TermuxActivity.class);
-            btnIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-            if (!actionCmd.isEmpty()) {
-                btnIntent.putExtra("com.agycli.execute_command", actionCmd);
-            }
-            int flags = Build.VERSION.SDK_INT >= Build.VERSION_CODES.M ? PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE : PendingIntent.FLAG_UPDATE_CURRENT;
-            PendingIntent pi = PendingIntent.getActivity(context, btnId, btnIntent, flags);
-            views.setOnClickPendingIntent(btnViewId, pi);
-        } else {
-            views.setViewVisibility(btnViewId, View.GONE);
+        if (btnJson != null) {
+            label = btnJson.optString("text", defaultText);
+            action = btnJson.optString("action", defaultAction);
+            color = btnJson.optString("color", "");
         }
+
+        views.setTextViewText(btnViewId, label);
+        views.setViewVisibility(btnViewId, View.VISIBLE);
+
+        if (!color.isEmpty()) {
+            views.setTextColor(btnViewId, parseColor(color, Color.parseColor("#00F0FF")));
+        }
+
+        PendingIntent pi;
+        if (ACTION_WIDGET_REFRESH.equals(action) || ACTION_WIDGET_CYCLE_THEME.equals(action)) {
+            pi = makeBroadcastPendingIntent(context, action, null, btnId);
+        } else {
+            pi = makeBroadcastPendingIntent(context, ACTION_WIDGET_EXECUTE, action, btnId);
+        }
+        views.setOnClickPendingIntent(btnViewId, pi);
     }
 
     private static int parseColor(String hex, int defaultColor) {

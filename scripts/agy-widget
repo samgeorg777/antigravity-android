@@ -110,11 +110,41 @@ def cmd_set(args):
         if args.action3: cfg["btn3"]["action"] = args.action3
         if args.color3: cfg["btn3"]["color"] = args.color3
 
+    if args.btn4 or args.action4:
+        cfg["btn4"] = cfg.get("btn4", {})
+        if args.btn4: cfg["btn4"]["text"] = args.btn4
+        if args.action4: cfg["btn4"]["action"] = args.action4
+        if args.color4: cfg["btn4"]["color"] = args.color4
+
     if args.image:
         set_image_file(args.image, cfg)
 
     save_config(cfg)
     trigger_update()
+
+def trigger_refresh():
+    cmd = [
+        "am", "broadcast", "--user", "0",
+        "-a", "com.agycli.action.WIDGET_REFRESH",
+        "-n", "com.agycli/com.termux.app.widget.AntigravityWidgetProvider"
+    ]
+    try:
+        subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        print(f"{GREEN}[✓] Triggered live widget refresh with haptics!{RESET}")
+    except Exception as e:
+        print(f"{YELLOW}[!] Notice: ({e}){RESET}")
+
+def trigger_cycle_theme():
+    cmd = [
+        "am", "broadcast", "--user", "0",
+        "-a", "com.agycli.action.WIDGET_CYCLE_THEME",
+        "-n", "com.agycli/com.termux.app.widget.AntigravityWidgetProvider"
+    ]
+    try:
+        subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        print(f"{GREEN}[✓] Morphed widget theme on home screen!{RESET}")
+    except Exception as e:
+        print(f"{YELLOW}[!] Notice: ({e}){RESET}")
 
 def set_image_file(image_path, cfg=None):
     if not os.path.exists(image_path):
@@ -344,6 +374,9 @@ Examples:
     p_set.add_argument("--btn3", help="Button 3 label")
     p_set.add_argument("--action3", help="Button 3 command to execute")
     p_set.add_argument("--color3", help="Button 3 text color")
+    p_set.add_argument("--btn4", help="Button 4 label")
+    p_set.add_argument("--action4", help="Button 4 command to execute")
+    p_set.add_argument("--color4", help="Button 4 text color")
 
     # image
     p_img = sub.add_parser("image", help="Set a custom PNG/JPG image to display on the widget")
@@ -358,6 +391,13 @@ Examples:
 
     # update
     sub.add_parser("update", help="Send immediate update signal to Android home screen")
+
+    # refresh
+    sub.add_parser("refresh", help="Trigger live telemetry refresh with haptic feedback")
+
+    # theme / cycle
+    sub.add_parser("theme", help="Cycle widget shape and theme on the home screen")
+    sub.add_parser("cycle", help="Cycle widget shape and theme on the home screen")
 
     # status
     sub.add_parser("status", help="Print current widget config")
@@ -377,6 +417,10 @@ Examples:
         cmd_template(args)
     elif args.command == "update":
         trigger_update()
+    elif args.command == "refresh":
+        trigger_refresh()
+    elif args.command in ("theme", "cycle"):
+        trigger_cycle_theme()
     elif args.command == "status":
         cmd_status(args)
     elif args.command == "demo":
